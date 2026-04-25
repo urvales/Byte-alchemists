@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import onboardingRoutes from "./routes/onboarding.routes";
 import searchRoutes from "./routes/search.routes";
+import experienceRoutes from "./routes/experience.routes";
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.get("/health", (_req: Request, res: Response) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/onboarding", onboardingRoutes);
+app.use("/api/experiences", experienceRoutes);
 app.use("/api", searchRoutes);
 
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
