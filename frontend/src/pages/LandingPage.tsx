@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Search, Calendar, Users, ChevronDown, ArrowRight, Star, Zap, Globe, Shield } from 'lucide-react';
+import { Search, Calendar, Users, ChevronDown, ArrowRight, Star, Zap, Globe, Shield, MapPin } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const EXPERIENCE_TYPES = ['Adventure', 'Cultural', 'Relaxation', 'Food & Cuisine', 'Business', 'Family'];
+
+const SUGGESTIONS = ["Bangkok", "Mumbai", "London", "Paris", "Tokyo", "New York", "Dubai", "Singapore", "Rome", "Sydney", "Bali", "Cape Town", "Rio de Janeiro", "Amsterdam", "Seoul"];
 
 const FEATURES = [
   { icon: <Star className="h-5 w-5" />, title: 'Smart Discovery', description: 'Find hidden local gems, authentic dining, and off-the-beaten-path experiences powered by AI.', bg: '#E1F5EE', color: '#1D9E75' },
@@ -21,13 +23,25 @@ const STATS = [
 
 export default function LandingPage() {
   const [destination, setDestination] = useState('');
-  const [date, setDate] = useState('');
+  const [dates, setDates] = useState(() => {
+    const s = new Date();
+    s.setDate(s.getDate() + 1);
+    const e = new Date(s);
+    e.setDate(e.getDate() + 7);
+    return { start: s.toISOString().split('T')[0], end: e.toISOString().split('T')[0] };
+  });
   const [guests, setGuests] = useState('1');
   const [experience, setExperience] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const { isSignedIn } = useAuth();
   const navigate = useNavigate();
 
-  const handleSearch = () => {
+  const handleSearch = (cityOverride?: string) => {
+    const city = cityOverride || destination.trim();
+    if (city) {
+      localStorage.setItem('lastSearchCity', city);
+      localStorage.setItem('lastSearchDates', JSON.stringify(dates));
+    }
     if (isSignedIn) {
       navigate('/dashboard');
     } else {
@@ -85,31 +99,69 @@ export default function LandingPage() {
               {/* Destination */}
               <div className="flex items-center gap-2.5 border-b border-gray-100 px-4 py-3.5 focus-within:bg-green-50/40 sm:border-b-0 sm:border-r lg:col-span-1">
                 <Search className="h-4 w-4 flex-shrink-0 text-[#1D9E75]" />
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 relative">
                   <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Where</div>
                   <input
                     type="text"
                     placeholder="Destination city or country"
                     value={destination}
-                    onChange={e => setDestination(e.target.value)}
+                    onFocus={() => setShowSuggestions(true)}
+                    onChange={e => {
+                      setDestination(e.target.value);
+                      setShowSuggestions(true);
+                    }}
                     className="w-full bg-transparent text-sm font-medium text-gray-800 outline-none placeholder:font-normal placeholder:text-gray-400"
                   />
+                  {showSuggestions && destination.length > 0 && (
+                    <div className="absolute left-0 top-full mt-2 w-full bg-white rounded-xl shadow-2xl overflow-hidden z-[60] text-[#085041] border border-gray-100">
+                      {SUGGESTIONS.filter(s => s.toLowerCase().includes(destination.toLowerCase())).map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setDestination(s);
+                            setShowSuggestions(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm hover:bg-emerald-50 transition-colors border-b border-gray-50 last:border-0 flex items-center gap-2"
+                        >
+                          <MapPin className="w-3 h-3 opacity-40" /> {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Date */}
-              <div className="flex items-center gap-2.5 border-b border-gray-100 px-4 py-3.5 focus-within:bg-green-50/40 sm:border-b-0 sm:border-r lg:col-span-1">
-                <Calendar className="h-4 w-4 flex-shrink-0 text-[#1D9E75]" />
-                <div className="min-w-0 flex-1">
-                  <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">When</div>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                    className="w-full bg-transparent text-sm font-medium text-gray-700 outline-none"
-                  />
-                </div>
-              </div>
+               {/* Date Range */}
+               <div className="flex items-center gap-2.5 border-b border-gray-100 px-4 py-3.5 focus-within:bg-green-50/40 sm:border-b-0 sm:border-r lg:col-span-1">
+                 <Calendar className="h-4 w-4 flex-shrink-0 text-[#1D9E75]" />
+                 <div className="min-w-0 flex-1">
+                   <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">When</div>
+                   <div className="flex flex-col gap-1 mt-1">
+                     <div className="flex items-center gap-1">
+                       <span className="text-[9px] font-bold text-gray-400 w-8">START</span>
+                       <input
+                         type="date"
+                         value={dates.start}
+                         onChange={e => setDates(prev => ({ ...prev, start: e.target.value }))}
+                         className="flex-1 bg-transparent text-xs font-semibold text-gray-800 outline-none cursor-pointer"
+                         style={{ colorScheme: 'light' }}
+                       />
+                     </div>
+                     <div className="flex items-center gap-1">
+                       <span className="text-[9px] font-bold text-gray-400 w-8">END</span>
+                       <input
+                         type="date"
+                         value={dates.end}
+                         onChange={e => setDates(prev => ({ ...prev, end: e.target.value }))}
+                         className="flex-1 bg-transparent text-xs font-semibold text-gray-800 outline-none cursor-pointer"
+                         style={{ colorScheme: 'light' }}
+                       />
+                     </div>
+                   </div>
+                 </div>
+               </div>
 
               {/* Guests */}
               <div className="flex items-center gap-2.5 border-b border-gray-100 px-4 py-3.5 focus-within:bg-green-50/40 sm:border-b-0 sm:border-r lg:col-span-1">

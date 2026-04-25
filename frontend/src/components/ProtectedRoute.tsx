@@ -34,7 +34,7 @@ export default function ProtectedRoute({ requireOnboarding = true }: Readonly<Pr
         setOnboardingDone(true);
       }
     }).catch(() => {}).finally(() => setChecking(false));
-  }, [isLoaded, isSignedIn, token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoaded, isSignedIn, token, requireOnboarding]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isLoaded || checking) {
     return (

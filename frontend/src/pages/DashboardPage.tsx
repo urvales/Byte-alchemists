@@ -1,212 +1,493 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { Search } from 'lucide-react';
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "../context/AuthContext";
+import { Search, MapPin, Navigation, Sparkles } from "lucide-react";
 import {
-  getGems, getAlerts, getTransit, getSafety,
+  getGems,
+  getAlerts,
+  getTransit,
+  getSafety,
   createSearch,
-  type Gem, type Alert, type TransitData, type SafetyData,
-} from '../services/travelApi';
+  type Gem,
+  type Alert,
+  type TransitData,
+  type SafetyData,
+} from "../services/travelApi";
 
-type Tab = 'discover' | 'essentials' | 'translate' | 'transit' | 'health';
+// Components
+import ScanMenuModal from "../components/ScanMenuModal";
+import SOSModal from "../components/SOSModal";
+import SearchRefinementModal from "../components/SearchRefinementModal";
+import ItineraryModal from "../components/ItineraryModal";
+
+type Tab = "discover" | "essentials" | "translate" | "transit" | "health";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'discover', label: 'Discover' },
-  { id: 'essentials', label: 'Essentials' },
-  { id: 'translate', label: 'Translate' },
-  { id: 'transit', label: 'Transit' },
-  { id: 'health', label: 'Health & Safety' },
+  { id: "discover", label: "Discover" },
+  { id: "essentials", label: "Essentials" },
+  { id: "translate", label: "Translate" },
+  { id: "transit", label: "Transit" },
+  { id: "health", label: "Health & Safety" },
 ];
 
 const TRANSLATIONS: Record<string, string> = {
-  'phở': 'Phở (Vietnamese noodle soup) — slow-cooked beef broth with rice noodles, herbs, and your choice of beef cuts. Rich, aromatic, and deeply satisfying. Price: ₹120–200.',
-  'tako': 'Takoyaki (たこ焼き) — Japanese ball-shaped snacks made with wheat batter, diced octopus, tempura scraps, and green onion. Topped with mayo and bonito flakes.',
-  'ramen': 'Ramen (ラーメン) — Japanese noodle soup with wheat noodles in a savory broth (shoyu, miso, or tonkotsu), toppings like chashu pork, egg, and nori.',
-  'pad': "Pad Thai (ผัดไทย) — stir-fried rice noodles with eggs, tofu or shrimp, bean sprouts, peanuts. Thailand's iconic street food. Contains peanuts & shellfish.",
+  phở: "Phở (Vietnamese noodle soup) — slow-cooked beef broth with rice noodles, herbs. Price: ₹120–200.",
+  tako: "Takoyaki (たこ焼き) — Japanese octopus balls with mayo and bonito flakes.",
+  ramen:
+    "Ramen (ラーメン) — Japanese wheat noodles in savory broth with toppings.",
+  pad: "Pad Thai (ผัดไทย) — Iconic Thai stir-fried rice noodles. Contains peanuts.",
 };
 
-// ── Static fallbacks (used if API is unavailable) ─────────────────
-const FALLBACK_GEMS: Gem[] = [
-  { id: 'g1', icon: '🍜', name: "Mama Lai's Noodles", meta: '4.9 ★ · Cash only · Local fav', distance: '0.3 km', bg: '#E1F5EE', category: 'food' },
-  { id: 'g2', icon: '🎭', name: 'Shadow Puppet Market', meta: '4.7 ★ · Evenings only', distance: '0.9 km', bg: '#EEEDFE', category: 'culture' },
-  { id: 'g3', icon: '☕', name: 'Rooftop Heritage Café', meta: '4.8 ★ · Great views', distance: '1.2 km', bg: '#FAEEDA', category: 'food' },
-];
-
-const FALLBACK_ALERTS: Alert[] = [
-  { id: 'a1', dot: '#BA7517', bg: '#FAEEDA', severity: 'warning', text: 'Night market at Temple Sq closes early tonight (9pm) due to rain forecast.', time: '15 min ago' },
-  { id: 'a2', dot: '#1D9E75', bg: '#E1F5EE', severity: 'info', text: 'Free cultural tour departs Old Quarter at 6pm — 4 spots left.', time: '1 hr ago' },
-  { id: 'a3', dot: '#185FA5', bg: '#E6F1FB', severity: 'info', text: 'Currency: USD/THB rate improved — best rate at Central Bank branch.', time: '2 hr ago' },
-];
-
-const FALLBACK_TRANSIT: TransitData = {
+// ── Base Fallback Data ───────────────────────────────────────────
+const BASE_TRANSIT: TransitData = {
   routes: [
-    { id: 't1', icon: '🚇', name: 'MRT Blue Line — Hua Lamphong', sub: 'Platform 2 · 3 stops away', time: '4 min', status: 'On time', color: '#1D9E75' },
-    { id: 't2', icon: '🚌', name: 'Bus 15B — Old Town Route', sub: 'Stop A3 · AC bus', time: '12 min', status: 'Slight delay', color: '#BA7517' },
-    { id: 't3', icon: '🛺', name: 'Tuk-tuk (Verified Operator)', sub: 'Licensed · Fixed rates', time: 'Now', status: 'Available', color: '#1D9E75' },
-    { id: 't4', icon: '✈️', name: 'Airport Express — Suvarnabhumi', sub: 'Phaya Thai Stn · 28 min ride', time: 'Every 30m', status: 'Scheduled', color: '#9ca3af' },
+    {
+      id: "t1",
+      icon: "🚇",
+      name: "MRT Blue Line",
+      sub: "Platform 2 · 3 stops away",
+      time: "4 min",
+      status: "On time",
+      color: "#1D9E75",
+    },
+    {
+      id: "t2",
+      icon: "🚌",
+      name: "Bus 15B",
+      sub: "Stop A3 · AC bus",
+      time: "12 min",
+      status: "Slight delay",
+      color: "#BA7517",
+    },
+    {
+      id: "t3",
+      icon: "🛺",
+      name: "Tuk-tuk",
+      sub: "Verified Operator",
+      time: "Now",
+      status: "Available",
+      color: "#1D9E75",
+    },
   ],
   airportCosts: [
-    { label: 'Airport Rail Link', value: '₹130 · 28 min', tier: 'low' },
-    { label: 'Metered Taxi', value: '₹350–600 · 40–70 min', tier: 'medium' },
-    { label: 'Grab / Bolt', value: '₹280–450 · 45 min', tier: 'medium' },
-    { label: 'Private Transfer', value: '₹900+ · Fixed price', tier: 'high' },
+    { label: "Airport Rail Link", value: "₹130 · 28 min", tier: "low" },
+    { label: "Metered Taxi", value: "₹350–600 · 40–70 min", tier: "medium" },
   ],
 };
 
-const FALLBACK_SAFETY: SafetyData = {
-  score: 8.2, scamRisk: 'Medium', nightSafety: 'Good',
+const BASE_SAFETY: SafetyData = {
+  score: 8.2,
+  scamRisk: "Medium",
+  nightSafety: "Good",
   breakdown: [
-    { label: 'Overall Safety', value: '8.2/10', pct: 82, color: '#1D9E75' },
-    { label: 'Scam Risk', value: 'Medium', pct: 40, color: '#BA7517' },
-    { label: 'Night Safety', value: 'Good', pct: 70, color: '#1D9E75' },
+    { label: "Overall Safety", value: "8.2/10", pct: 82, color: "#1D9E75" },
+    { label: "Scam Risk", value: "Medium", pct: 40, color: "#BA7517" },
   ],
   tips: [
-    { icon: '💧', bold: 'Avoid tap water', rest: '— use bottled only' },
-    { icon: '🌡️', bold: 'Heat advisory', rest: '— 38°C today, stay hydrated' },
-    { icon: '🦟', bold: 'Use insect repellent', rest: '— dengue season active' },
-    { icon: '🏥', bold: 'Travel insurance', rest: '— BUPA accepted locally' },
-    { icon: '🍽️', bold: 'Street food', rest: '— stick to busy stalls with high turnover' },
+    { icon: "💧", bold: "Avoid tap water", rest: "— use bottled only" },
+    { icon: "🏥", bold: "Travel insurance", rest: "— BUPA accepted locally" },
   ],
-  emergency: { hospital: { name: 'BNH Hospital', distance: '1.1 km' }, police: { distance: '0.8 km' }, embassy: { distance: '3.2 km' } },
+  emergency: {
+    hospital: { name: "BNH Hospital", distance: "1.1 km" },
+    police: { distance: "0.8 km" },
+    embassy: { distance: "3.2 km" },
+  },
   medicalCosts: [
-    { label: 'GP Consultation', value: '₹300–600', tier: 'low' },
-    { label: 'Blood Test', value: '₹200–500', tier: 'low' },
-    { label: 'X-Ray', value: '₹800–1,500', tier: 'medium' },
-    { label: 'Emergency Room', value: '₹2k–5k', tier: 'medium' },
-    { label: 'Ambulance', value: '₹500–1,200', tier: 'high' },
+    { label: "GP Consultation", value: "₹300–600", tier: "low" },
+    { label: "Emergency Room", value: "₹2k–5k", tier: "medium" },
   ],
 };
 
-// ── Component ─────────────────────────────────────────────────────
+// ── City-specific Mock Data ──────────────────────────────────────
+// ── City-specific Mock Data ──────────────────────────────────────
+const CITY_DATA: Record<string, any> = {
+  Bangkok: {
+    gems: [
+      { id: "b1", icon: "🍜", name: "Mama Lai's", meta: "4.9 ★", distance: "0.3 km", bg: "#E1F5EE" },
+      { id: "b2", icon: "🙏", name: "Wat Saket", meta: "4.7 ★", distance: "1.2 km", bg: "#FAEEDA" },
+      { id: "b3", icon: "🍹", name: "Teens of Thailand", meta: "4.8 ★", distance: "0.8 km", bg: "#FCEBEB" },
+      { id: "b4", icon: "🛍️", name: "Chatuchak Market", meta: "4.6 ★", distance: "4.5 km", bg: "#E6F1FB" },
+    ],
+    alerts: [
+      { id: "ba1", text: "Rain forecast tonight.", time: "15m ago", bg: "#FAEEDA", dot: "#BA7517" },
+      { id: "ba2", text: "BTS Sukhumvit Line delayed.", time: "1h ago", bg: "#FCEBEB", dot: "#D85A30" },
+      { id: "ba3", text: "Night market opens early.", time: "2h ago", bg: "#E1F5EE", dot: "#1D9E75" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: BASE_SAFETY,
+  },
+  Mumbai: {
+    gems: [
+      { id: "m1", icon: "🍛", name: "Bademiya", meta: "4.8 ★", distance: "0.5 km", bg: "#FAEEDA" },
+      { id: "m2", icon: "🌊", name: "Marine Drive", meta: "4.9 ★", distance: "2.1 km", bg: "#E6F1FB" },
+      { id: "m3", icon: "☕", name: "Kyani & Co.", meta: "4.6 ★", distance: "1.5 km", bg: "#E1F5EE" },
+    ],
+    alerts: [
+      { id: "ma1", text: "Train delayed 10m.", time: "5m ago", bg: "#E6F1FB", dot: "#185FA5" },
+      { id: "ma2", text: "Heavy traffic at Bandra.", time: "30m ago", bg: "#FAEEDA", dot: "#BA7517" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 7.8 },
+  },
+  London: {
+    gems: [
+      { id: "l1", icon: "🥯", name: "Beigel Bake", meta: "4.9 ★", distance: "0.4 km", bg: "#FAEEDA" },
+      { id: "l2", icon: "🖼️", name: "Tate Modern", meta: "4.8 ★", distance: "1.2 km", bg: "#E6F1FB" },
+      { id: "l3", icon: "🍻", name: "The Churchill Arms", meta: "4.7 ★", distance: "2.5 km", bg: "#FCEBEB" },
+    ],
+    alerts: [
+      { id: "la1", text: "Tube strike tomorrow.", time: "2h ago", bg: "#FAEEDA", dot: "#BA7517" },
+      { id: "la2", text: "Central line delays.", time: "10m ago", bg: "#FCEBEB", dot: "#D85A30" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 8.5 },
+  },
+  Paris: {
+    gems: [
+      { id: "p1", icon: "🥐", name: "Du Pain et des Idées", meta: "4.9 ★", distance: "0.6 km", bg: "#FCEBEB" },
+      { id: "p2", icon: "🎨", name: "Musée d'Orsay", meta: "4.8 ★", distance: "1.5 km", bg: "#E6F1FB" },
+      { id: "p3", icon: "🍷", name: "Le Verre Volé", meta: "4.7 ★", distance: "2.0 km", bg: "#E1F5EE" },
+    ],
+    alerts: [
+      { id: "pa1", text: "Museum pass sale today.", time: "1h ago", bg: "#E1F5EE", dot: "#1D9E75" },
+      { id: "pa2", text: "Eiffel Tower tickets low.", time: "3h ago", bg: "#FAEEDA", dot: "#BA7517" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 8.1 },
+  },
+  Tokyo: {
+    gems: [
+      { id: "t1", icon: "🍣", name: "Tsukiji Outer Market", meta: "4.9 ★", distance: "0.2 km", bg: "#E6F1FB" },
+      { id: "t2", icon: "⛩️", name: "Meiji Shrine", meta: "4.8 ★", distance: "3.1 km", bg: "#E1F5EE" },
+      { id: "t3", icon: "🍜", name: "Ichiran Ramen", meta: "4.7 ★", distance: "1.0 km", bg: "#FAEEDA" },
+    ],
+    alerts: [
+      { id: "ta1", text: "Sakura peak in 2 days.", time: "3h ago", bg: "#FCEBEB", dot: "#D85A30" },
+      { id: "ta2", text: "Yamanote line clear.", time: "5m ago", bg: "#E1F5EE", dot: "#1D9E75" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 9.2 },
+  },
+  "New York": {
+    gems: [
+      { id: "ny1", icon: "🍕", name: "Joe's Pizza", meta: "4.8 ★", distance: "0.3 km", bg: "#FAEEDA" },
+      { id: "ny2", icon: "🌳", name: "Central Park", meta: "4.9 ★", distance: "1.5 km", bg: "#E1F5EE" },
+      { id: "ny3", icon: "🎭", name: "Broadway Tickets", meta: "4.7 ★", distance: "0.8 km", bg: "#E6F1FB" },
+    ],
+    alerts: [
+      { id: "nya1", text: "Subway line G closed.", time: "10m ago", bg: "#FAEEDA", dot: "#BA7517" },
+      { id: "nya2", text: "Times square crowded.", time: "1h ago", bg: "#FCEBEB", dot: "#D85A30" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 7.5 },
+  },
+  Dubai: {
+    gems: [
+      { id: "d1", icon: "🏙️", name: "Old Souk Gold", meta: "4.7 ★", distance: "1.5 km", bg: "#FAEEDA" },
+      { id: "d2", icon: "🐪", name: "Desert Safari", meta: "4.8 ★", distance: "15.0 km", bg: "#E1F5EE" },
+      { id: "d3", icon: "🌊", name: "Kite Beach", meta: "4.6 ★", distance: "4.2 km", bg: "#E6F1FB" },
+    ],
+    alerts: [
+      { id: "da1", text: "Sandstorm warning.", time: "4h ago", bg: "#FAEEDA", dot: "#BA7517" },
+      { id: "da2", text: "Burj Khalifa light show at 8pm.", time: "1h ago", bg: "#E6F1FB", dot: "#185FA5" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 8.8 },
+  },
+  Singapore: {
+    gems: [
+      { id: "s1", icon: "🍲", name: "Tian Tian Chicken Rice", meta: "4.9 ★", distance: "0.4 km", bg: "#E1F5EE" },
+      { id: "s2", icon: "🌺", name: "Gardens by the Bay", meta: "4.8 ★", distance: "2.1 km", bg: "#E6F1FB" },
+      { id: "s3", icon: "🛍️", name: "Orchard Road", meta: "4.7 ★", distance: "1.5 km", bg: "#FCEBEB" },
+    ],
+    alerts: [
+      { id: "sa1", text: "Light show at 8pm.", time: "1h ago", bg: "#E6F1FB", dot: "#185FA5" },
+      { id: "sa2", text: "Heavy rain expected at 4pm.", time: "30m ago", bg: "#FAEEDA", dot: "#BA7517" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 9.0 },
+  },
+  Rome: {
+    gems: [
+      { id: "r1", icon: "🍦", name: "Giolitti Gelato", meta: "4.8 ★", distance: "0.5 km", bg: "#FCEBEB" },
+      { id: "r2", icon: "🏛️", name: "Pantheon", meta: "4.9 ★", distance: "1.2 km", bg: "#E6F1FB" },
+      { id: "r3", icon: "🍝", name: "Trastevere Pasta", meta: "4.7 ★", distance: "2.5 km", bg: "#E1F5EE" },
+    ],
+    alerts: [
+      { id: "ra1", text: "Colosseum queues 2h+.", time: "30m ago", bg: "#FAEEDA", dot: "#BA7517" },
+      { id: "ra2", text: "Metro line A closed.", time: "1h ago", bg: "#FCEBEB", dot: "#D85A30" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 7.9 },
+  },
+  Sydney: {
+    gems: [
+      { id: "sy1", icon: "🌊", name: "Bondi Coastal Walk", meta: "4.9 ★", distance: "2.1 km", bg: "#E6F1FB" },
+      { id: "sy2", icon: "🎭", name: "Sydney Opera House", meta: "4.8 ★", distance: "5.0 km", bg: "#E1F5EE" },
+      { id: "sy3", icon: "🍷", name: "Hunter Valley Wine", meta: "4.7 ★", distance: "150 km", bg: "#FCEBEB" },
+    ],
+    alerts: [
+      { id: "sya1", text: "Surf warning: High swell.", time: "1h ago", bg: "#E6F1FB", dot: "#185FA5" },
+      { id: "sya2", text: "Ferry delays at Circular Quay.", time: "20m ago", bg: "#FAEEDA", dot: "#BA7517" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 8.6 },
+  },
+  Bali: {
+    gems: [
+      { id: "ba1", icon: "🌴", name: "Ubud Monkey Forest", meta: "4.8 ★", distance: "1.2 km", bg: "#E1F5EE" },
+      { id: "ba2", icon: "🏄", name: "Uluwatu Surf Break", meta: "4.9 ★", distance: "5.5 km", bg: "#E6F1FB" },
+      { id: "ba3", icon: "☕", name: "Kopi Luwak Farm", meta: "4.7 ★", distance: "3.0 km", bg: "#FAEEDA" },
+    ],
+    alerts: [
+      { id: "baa1", text: "Traffic near Kuta.", time: "20m ago", bg: "#FAEEDA", dot: "#BA7517" },
+      { id: "baa2", text: "High tide warning.", time: "2h ago", bg: "#FCEBEB", dot: "#D85A30" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 7.4 },
+  },
+  "Cape Town": {
+    gems: [
+      { id: "ct1", icon: "⛰️", name: "Table Mountain", meta: "4.9 ★", distance: "3.5 km", bg: "#E6F1FB" },
+      { id: "ct2", icon: "🐧", name: "Boulders Beach", meta: "4.8 ★", distance: "12 km", bg: "#E1F5EE" },
+      { id: "ct3", icon: "🍷", name: "Stellenbosch Vines", meta: "4.9 ★", distance: "45 km", bg: "#FCEBEB" },
+    ],
+    alerts: [
+      { id: "cta1", text: "High winds expected.", time: "45m ago", bg: "#FAEEDA", dot: "#BA7517" },
+      { id: "cta2", text: "Cableway closed today.", time: "1h ago", bg: "#FCEBEB", dot: "#D85A30" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 7.2 },
+  },
+  "Rio de Janeiro": {
+    gems: [
+      { id: "rj1", icon: "🏖️", name: "Copacabana Beach", meta: "4.7 ★", distance: "0.5 km", bg: "#FCEBEB" },
+      { id: "rj2", icon: "🗽", name: "Christ the Redeemer", meta: "4.9 ★", distance: "4.2 km", bg: "#E6F1FB" },
+      { id: "rj3", icon: "🥩", name: "Churrascaria Palace", meta: "4.8 ★", distance: "1.0 km", bg: "#E1F5EE" },
+    ],
+    alerts: [
+      { id: "rja1", text: "Metro line 1 delay.", time: "15m ago", bg: "#FAEEDA", dot: "#BA7517" },
+      { id: "rja2", text: "Carnival street blocked.", time: "3h ago", bg: "#E6F1FB", dot: "#185FA5" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 6.8 },
+  },
+  Amsterdam: {
+    gems: [
+      { id: "am1", icon: "🚲", name: "Vondelpark", meta: "4.9 ★", distance: "1.0 km", bg: "#E1F5EE" },
+      { id: "am2", icon: "🖼️", name: "Van Gogh Museum", meta: "4.8 ★", distance: "1.5 km", bg: "#FCEBEB" },
+      { id: "am3", icon: "🧀", name: "Cheese Museum", meta: "4.6 ★", distance: "0.8 km", bg: "#FAEEDA" },
+    ],
+    alerts: [
+      { id: "ama1", text: "Museum square busy.", time: "10m ago", bg: "#E6F1FB", dot: "#185FA5" },
+      { id: "ama2", text: "Tram 2 rerouted.", time: "1h ago", bg: "#FAEEDA", dot: "#BA7517" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 8.9 },
+  },
+  Seoul: {
+    gems: [
+      { id: "se1", icon: "🏯", name: "Gyeongbokgung Palace", meta: "4.8 ★", distance: "2.2 km", bg: "#FAEEDA" },
+      { id: "se2", icon: "🥩", name: "Korean BBQ Alley", meta: "4.9 ★", distance: "1.0 km", bg: "#E1F5EE" },
+      { id: "se3", icon: "🛍️", name: "Myeongdong Market", meta: "4.7 ★", distance: "3.5 km", bg: "#E6F1FB" },
+    ],
+    alerts: [
+      { id: "sea1", text: "Fine dust warning.", time: "2h ago", bg: "#FCEBEB", dot: "#D85A30" },
+      { id: "sea2", text: "Subway line 2 normal.", time: "5m ago", bg: "#E1F5EE", dot: "#1D9E75" },
+    ],
+    transit: BASE_TRANSIT,
+    safety: { ...BASE_SAFETY, score: 9.1 },
+  },
+};
+
+const GET_CITY_DATA = (city: string) => {
+  const key = Object.keys(CITY_DATA).find(
+    (k) => k.toLowerCase() === city.toLowerCase(),
+  );
+  return key ? CITY_DATA[key] : CITY_DATA["Bangkok"];
+};
+
+const SUGGESTIONS = Object.keys(CITY_DATA);
+
 export default function DashboardPage() {
   const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('discover');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [translateInput, setTranslateInput] = useState('');
-  const [translateOutput, setTranslateOutput] = useState('');
-  const [toast, setToast] = useState('');
+  const [activeTab, setActiveTab] = useState<Tab>("discover");
+  const [toast, setToast] = useState("");
+  const [currentCity, setCurrentCity] = useState(() => {
+    const saved = localStorage.getItem("lastSearchCity");
+    if (saved && saved !== "[object Object]" && !saved.startsWith("{")) {
+      return saved;
+    }
+    return "Bangkok";
+  });
+  const [searchQuery, setSearchQuery] = useState(() => {
+    const saved = localStorage.getItem("lastSearchCity");
+    if (saved && saved !== "[object Object]" && !saved.startsWith("{")) {
+      return saved;
+    }
+    return "";
+  });
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // API-backed state
-  const [gems, setGems] = useState<Gem[]>(FALLBACK_GEMS);
-  const [alerts, setAlerts] = useState<Alert[]>(FALLBACK_ALERTS);
-  const [transit, setTransit] = useState<TransitData>(FALLBACK_TRANSIT);
-  const [safety, setSafety] = useState<SafetyData>(FALLBACK_SAFETY);
+  // Modal states
+  const [modals, setModals] = useState({
+    scan: false,
+    sos: false,
+    refine: false,
+    itinerary: false,
+  });
+  const [itineraryDetails, setItineraryDetails] = useState<any>(null);
+  const [detailModal, setDetailModal] = useState<any>(null);
+  const [searchDates, setSearchDates] = useState(() => {
+    const saved = localStorage.getItem('lastSearchDates');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  // API states
+  const [gems, setGems] = useState<Gem[]>(() => GET_CITY_DATA(currentCity).gems);
+  const [alerts, setAlerts] = useState<Alert[]>(() => GET_CITY_DATA(currentCity).alerts);
+  const [transit, setTransit] = useState<TransitData>(BASE_TRANSIT);
+  const [safety, setSafety] = useState<SafetyData>(BASE_SAFETY);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(''), 3000);
+    setTimeout(() => setToast(""), 3000);
   }, []);
 
+  const toggleModal = (key: keyof typeof modals, val: boolean) =>
+    setModals((prev) => ({ ...prev, [key]: val }));
+
+  useEffect(() => {
+    // Only use geolocation if there's no searched city from the landing page
+    const searchedCity = localStorage.getItem("lastSearchCity");
+    if (searchedCity && searchedCity !== "[object Object]" && !searchedCity.startsWith("{")) {
+      setCurrentCity(searchedCity);
+      setSearchQuery(searchedCity);
+      return;
+    }
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        let city =
+          pos.coords.latitude > 18 && pos.coords.latitude < 20
+            ? "Mumbai"
+            : "Bangkok";
+        setCurrentCity(city);
+        setSearchQuery(city);
+        showToast(`Located in ${city}`);
+      });
+    }
+  }, [showToast]);
+
   useEffect(() => {
     if (!token) return;
-    Promise.allSettled([getGems(token), getAlerts(token)]).then(([g, a]) => {
-      if (g.status === 'fulfilled') setGems(g.value.data);
-      if (a.status === 'fulfilled') setAlerts(a.value.data);
+    // Make API calls for demo purposes, but use our rich frontend CITY_DATA
+    Promise.allSettled([
+      getGems(token, currentCity),
+      getAlerts(token, currentCity),
+    ]).then(() => {
+      const data = GET_CITY_DATA(currentCity);
+      setGems(data.gems);
+      setAlerts(data.alerts);
     });
-  }, [token]);
+  }, [token, currentCity]);
 
   useEffect(() => {
     if (!token) return;
-    if (activeTab === 'transit') getTransit(token).then(r => setTransit(r.data)).catch(() => {});
-    if (activeTab === 'health' || activeTab === 'essentials') getSafety(token).then(r => setSafety(r.data)).catch(() => {});
-  }, [activeTab, token]);
+    if (activeTab === "transit") {
+      getTransit(token, currentCity).finally(() => {
+        setTransit(GET_CITY_DATA(currentCity).transit);
+      });
+    }
+    if (activeTab === "health" || activeTab === "essentials") {
+      getSafety(token, currentCity).finally(() => {
+        setSafety(GET_CITY_DATA(currentCity).safety);
+      });
+    }
+  }, [activeTab, token, currentCity]);
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    showToast(`Searching for "${searchQuery}"…`);
-    try {
-      if (token) await createSearch(token, { destination: searchQuery });
-    } catch { /* log only */ }
+  const handleSearch = (cityOverride?: string) => {
+    const city = cityOverride || searchQuery.trim();
+    if (!city) return;
+
+    // Update dashboard context to the searched city
+    setCurrentCity(city);
+    setSearchQuery(city);
+    toggleModal("refine", true);
   };
 
-  const handleTranslate = (val: string) => {
-    setTranslateInput(val);
-    const lower = val.toLowerCase();
-    const match = Object.keys(TRANSLATIONS).find(k => lower.includes(k));
-    if (match && val.length > 2) setTranslateOutput(TRANSLATIONS[match]);
-    else if (val.length > 3) setTranslateOutput(`Searching food database for "${val}"… Ask me in chat for full translation.`);
-    else setTranslateOutput('');
+  const generateItinerary = (details: any) => {
+    setItineraryDetails(details);
+    toggleModal("refine", false);
+    toggleModal("itinerary", true);
   };
 
   return (
-    <div className="min-h-[calc(100vh-56px)] bg-gray-50">
-      <div className="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
-        {/* ── Hero ─────────────────────────────────────────────── */}
-        <div className="relative mb-5 overflow-hidden rounded-2xl p-6 sm:p-8" style={{ background: '#1D9E75' }}>
-          <div className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
-          <div className="pointer-events-none absolute bottom-[-20px] left-[20%] h-32 w-32 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
-          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-white/60">
-                Roamwise · Smart Travel Platform
-              </p>
-              <h1 className="mb-2 text-3xl font-bold leading-tight text-white sm:text-4xl" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                Where do you want<br />to explore today?
-              </h1>
-              <p className="max-w-md text-sm leading-relaxed text-white/80">
-                Your AI travel companion for services, discovery, translation, and safety.
-              </p>
-            </div>
-            {/* Stats row */}
-            <div className="flex gap-3 lg:flex-shrink-0">
-              {[['2.4k', 'Services'], ['180+', 'Cities'], ['48', 'Languages']].map(([num, lbl]) => (
-                <div key={lbl} className="rounded-xl px-4 py-2.5 text-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                  <div className="text-xl font-bold text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>{num}</div>
-                  <div className="text-[10px] uppercase tracking-wide text-white/70">{lbl}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* Search bar */}
-          <div className="relative mt-5 flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-2 backdrop-blur-sm sm:max-w-lg">
-            <Search className="h-4 w-4 flex-shrink-0 text-white/70" />
-            <input
-              type="text"
-              placeholder="Search places, services, food nearby..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSearch()}
-              className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/55"
-            />
-            <button
-              onClick={handleSearch}
-              className="flex-shrink-0 rounded-xl px-4 py-1.5 text-xs font-semibold transition hover:opacity-90"
-              style={{ background: '#fff', color: '#085041' }}
-            >
-              Explore ↗
-            </button>
-          </div>
-        </div>
+    <div className="min-h-[calc(100vh-56px)] bg-gray-50 pb-12">
+      <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+        <Hero
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onSearch={handleSearch}
+          showSuggestions={showSuggestions}
+          setShowSuggestions={setShowSuggestions}
+        />
+        <TabBar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        {/* ── Tab bar ───────────────────────────────────────────── */}
-        <div className="scrollbar-none mb-5 flex gap-2 overflow-x-auto pb-1">
-          {TABS.map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className="flex-shrink-0 rounded-full border px-5 py-2 text-sm font-medium transition-all"
-              style={activeTab === id
-                ? { background: '#1D9E75', color: '#fff', borderColor: '#1D9E75' }
-                : { background: '#fff', color: '#6b7280', borderColor: '#e5e7eb' }
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* ── Tab content ───────────────────────────────────────── */}
-        {activeTab === 'discover' && <DiscoverTab gems={gems} alerts={alerts} sendPrompt={showToast} />}
-        {activeTab === 'essentials' && <EssentialsTab safety={safety} sendPrompt={showToast} />}
-        {activeTab === 'translate' && (
-          <TranslateTab input={translateInput} output={translateOutput} onInput={handleTranslate} sendPrompt={showToast} />
+        {activeTab === "discover" && (
+          <DiscoverTab
+            gems={gems}
+            alerts={alerts}
+            city={currentCity}
+            onScan={() => toggleModal("scan", true)}
+            onSOS={() => toggleModal("sos", true)}
+            sendPrompt={showToast}
+            onDetail={setDetailModal}
+          />
         )}
-        {activeTab === 'transit' && <TransitTab data={transit} />}
-        {activeTab === 'health' && <HealthTab safety={safety} sendPrompt={showToast} />}
+        {activeTab === "essentials" && (
+          <EssentialsTab
+            safety={safety}
+            onSOS={() => toggleModal("sos", true)}
+          />
+        )}
+        {activeTab === "translate" && <TranslateTab city={currentCity} />}
+        {activeTab === "transit" && <TransitTab data={transit} />}
+        {activeTab === "health" && (
+          <HealthTab safety={safety} onSOS={() => toggleModal("sos", true)} />
+        )}
       </div>
 
-      {/* Toast */}
+      <ScanMenuModal
+        isOpen={modals.scan}
+        onClose={() => toggleModal("scan", false)}
+      />
+      <SOSModal
+        isOpen={modals.sos}
+        onClose={() => toggleModal("sos", false)}
+        city={currentCity}
+      />
+      <SearchRefinementModal
+        isOpen={modals.refine}
+        onClose={() => toggleModal("refine", false)}
+        destination={searchQuery}
+        onGenerate={generateItinerary}
+      />
+      <ItineraryModal
+        isOpen={modals.itinerary}
+        onClose={() => toggleModal("itinerary", false)}
+        details={itineraryDetails}
+      />
+      
+      {detailModal && (
+        <QuickDetailModal 
+          type={detailModal} 
+          city={currentCity} 
+          onClose={() => setDetailModal(null)} 
+        />
+      )}
+
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-xl px-5 py-3 text-sm text-white shadow-xl" style={{ background: '#085041' }}>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#085041] text-white px-5 py-3 rounded-xl shadow-xl">
           {toast}
         </div>
       )}
@@ -214,336 +495,401 @@ export default function DashboardPage() {
   );
 }
 
-/* ── DISCOVER ────────────────────────────────────────────────────── */
-function DiscoverTab({ gems, alerts, sendPrompt }: { gems: Gem[]; alerts: Alert[]; sendPrompt: (m: string) => void }) {
-  const SERVICES = [
-    { icon: '⚡', name: 'Charging Spots', count: '12 nearby', bg: '#E1F5EE', prompt: 'Show me all charging stations near me with available ports and prices' },
-    { icon: '🏥', name: 'Medical Help', count: '5 clinics', bg: '#FCEBEB', prompt: 'Find trusted medical clinics near me with transparent pricing' },
-    { icon: '💱', name: 'ATM & FX', count: '8 options', bg: '#FAEEDA', prompt: 'Show ATMs and currency exchange spots nearby with live rates' },
-    { icon: '📶', name: 'Free WiFi', count: '20+ spots', bg: '#E6F1FB', prompt: 'Find co-working spaces and cafes with strong WiFi nearby' },
-  ];
-
-  const QUICK = [
-    { icon: '🍽️', label: 'Scan Menu', prompt: 'Translate this restaurant menu photo and explain the dishes' },
-    { icon: '🆘', label: 'SOS Help', prompt: 'I need emergency help — show SOS options and nearest hospital' },
-    { icon: '🗺️', label: 'Day Plan', prompt: 'Plan me a half-day authentic local experience itinerary' },
-    { icon: '🤝', label: 'Etiquette', prompt: 'What local etiquette and customs should I know here?' },
-    { icon: '🚕', label: 'Safe Ride', prompt: 'Find me a trusted taxi or rideshare with estimated cost' },
-    { icon: '🎒', label: 'Pack Check', prompt: "What should I pack for tomorrow's weather and activities?" },
-  ];
-
+function Hero({
+  searchQuery,
+  setSearchQuery,
+  onSearch,
+  showSuggestions,
+  setShowSuggestions,
+}: any) {
   return (
-    <div>
-      <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">Essential Services</p>
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {SERVICES.map(s => (
-          <button key={s.name} onClick={() => sendPrompt(s.prompt)}
-            className="rounded-2xl border border-gray-100 bg-white p-5 text-center transition hover:border-[#1D9E75] hover:bg-[#E1F5EE]">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: s.bg }}>{s.icon}</div>
-            <div className="text-sm font-semibold text-gray-800">{s.name}</div>
-            <div className="mt-0.5 text-xs text-gray-400">{s.count}</div>
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-6 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            Local Hidden Gems
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#E1F5EE', color: '#085041' }}>Off-tourist</span>
-          </div>
-          {gems.map(g => (
-            <div key={g.id} className="flex items-center gap-3 border-b border-gray-50 py-2.5 last:border-0">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-xl" style={{ background: g.bg }}>{g.icon}</div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-gray-900">{g.name}</div>
-                <div className="text-xs text-gray-400">{g.meta}</div>
-              </div>
-              <div className="text-xs font-semibold" style={{ color: '#1D9E75' }}>{g.distance}</div>
+    <div className="relative mb-5 overflow-hidden rounded-2xl p-6 sm:p-8 bg-[#1D9E75] text-white">
+      <h1 className="text-3xl font-bold mb-2">
+        Where do you want
+        <br />
+        to explore today?
+      </h1>
+      <p className="text-sm opacity-80 mb-5">
+        Your AI travel companion for services, discovery, and safety.
+      </p>
+      <div className="relative flex items-center gap-2 max-w-lg bg-white/15 p-2 rounded-2xl backdrop-blur-sm">
+        <Search className="w-4 h-4 ml-2 opacity-60" />
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            placeholder="Search destination city..."
+            value={searchQuery}
+            onFocus={() => setShowSuggestions(true)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && onSearch()}
+            className="w-full bg-transparent outline-none text-sm placeholder:text-white/60"
+          />
+          {showSuggestions && searchQuery.length > 0 && (
+            <div className="absolute left-0 top-full mt-2 w-full bg-white rounded-xl shadow-2xl overflow-hidden z-[60] text-[#085041] border border-gray-100">
+              {SUGGESTIONS.filter((s) =>
+                s.toLowerCase().includes(searchQuery.toLowerCase()),
+              ).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Prevent focus loss
+                    onSearch(s);
+                    setShowSuggestions(false);
+                  }}
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-emerald-50 transition-colors border-b border-gray-50 last:border-0 flex items-center gap-2"
+                >
+                  <MapPin className="w-3 h-3 opacity-40" /> {s}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            Live Alerts
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#FAECE7', color: '#D85A30' }}>{alerts.length} new</span>
-          </div>
-          {alerts.map(a => (
-            <div key={a.id} className="mb-2 flex gap-3 rounded-xl p-3 last:mb-0" style={{ background: a.bg }}>
-              <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full" style={{ background: a.dot }} />
-              <div>
-                <div className="text-sm leading-relaxed text-gray-800">{a.text}</div>
-                <div className="mt-0.5 text-xs text-gray-500">{a.time}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">Quick Actions</p>
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-        {QUICK.map(q => (
-          <button key={q.label} onClick={() => sendPrompt(q.prompt)}
-            className="rounded-xl border border-gray-100 bg-white py-4 text-center transition hover:border-[#1D9E75] hover:bg-[#E1F5EE]">
-            <div className="text-2xl">{q.icon}</div>
-            <div className="mt-1.5 text-xs font-medium text-gray-700">{q.label}</div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ── ESSENTIALS ──────────────────────────────────────────────────── */
-function EssentialsTab({ safety, sendPrompt }: { safety: SafetyData; sendPrompt: (m: string) => void }) {
-  const PINS = [
-    { name: 'Central Mall', dist: '0.4 km · 6 free', pct: 80, color: '#1D9E75' },
-    { name: 'Main Library', dist: '0.7 km · 3 free', pct: 45, color: '#1D9E75' },
-    { name: 'City Café', dist: '1.1 km · 1 free', pct: 15, color: '#BA7517' },
-    { name: 'Bus Terminal', dist: '1.4 km · 8 free', pct: 90, color: '#1D9E75' },
-  ];
-
-  const costColor = (tier: string) => tier === 'low' ? '#1D9E75' : tier === 'medium' ? '#BA7517' : '#D85A30';
-
-  return (
-    <div>
-      <button onClick={() => sendPrompt('I need emergency assistance — show nearest hospital, police, and emergency contacts')}
-        className="mb-5 flex w-full items-center gap-4 rounded-2xl p-5 text-left transition hover:opacity-90"
-        style={{ background: '#D85A30' }}>
-        <span className="text-3xl">🚨</span>
-        <div className="flex-1">
-          <div className="font-bold text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>Emergency SOS</div>
-          <div className="text-sm text-white/80">
-            Hospital {safety.emergency.hospital.distance} · Police {safety.emergency.police.distance} · Embassy {safety.emergency.embassy.distance}
-          </div>
-        </div>
-        <span className="text-2xl text-white">›</span>
-      </button>
-
-      <div className="mb-5 rounded-2xl border border-gray-100 bg-white p-5">
-        <div className="mb-4 flex items-center gap-2 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
-          Device Charging Stations
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#E1F5EE', color: '#085041' }}>Live</span>
-        </div>
-        <div className="rounded-xl p-4" style={{ background: '#f9fafb' }}>
-          <p className="mb-4 text-center text-xs text-gray-400">📍 Showing charging spots within 1.5 km</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {PINS.map(p => (
-              <div key={p.name} className="rounded-xl border border-gray-100 bg-white p-3 text-center">
-                <div className="mx-auto mb-1 h-3 w-3 rounded-full" style={{ background: p.color }} />
-                <div className="text-xs font-semibold text-gray-800">{p.name}</div>
-                <div className="text-[11px] text-gray-400">{p.dist}</div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                  <div className="h-full rounded-full" style={{ width: `${p.pct}%`, background: p.color }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            Medical Costs
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#E6F1FB', color: '#185FA5' }}>Transparent</span>
-          </div>
-          {safety.medicalCosts.map(c => (
-            <div key={c.label} className="flex justify-between border-b border-gray-50 py-2.5 text-sm last:border-0">
-              <span className="text-gray-500">{c.label}</span>
-              <span className="font-semibold" style={{ color: costColor(c.tier) }}>{c.value}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            Safety Score
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#E1F5EE', color: '#085041' }}>Updated</span>
-          </div>
-          {safety.breakdown.map(s => (
-            <div key={s.label} className="mb-4 last:mb-0">
-              <div className="mb-1.5 flex justify-between text-sm">
-                <span className="text-gray-400">{s.label}</span>
-                <span className="font-semibold" style={{ color: s.color }}>{s.value}</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                <div className="h-full rounded-full" style={{ width: `${s.pct}%`, background: s.color }} />
-              </div>
-            </div>
-          ))}
-          <button onClick={() => sendPrompt('Give me detailed safety tips and scam warnings for this area')}
-            className="mt-4 w-full rounded-xl border border-gray-100 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
-            Full Safety Report ↗
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── TRANSLATE ───────────────────────────────────────────────────── */
-function TranslateTab({ input, output, onInput, sendPrompt }: { input: string; output: string; onInput: (v: string) => void; sendPrompt: (m: string) => void }) {
-  const MENU = [
-    { thai: 'ต้มข่าไก่', english: 'Tom Kha Gai', price: '≈ ₹180', prompt: 'Explain Tom Kha Gai in detail — is it vegetarian-friendly?' },
-    { thai: 'ผัดไทย', english: 'Pad Thai', price: '≈ ₹150', prompt: 'What is Pad Thai and does it have common allergens?' },
-    { thai: 'ส้มตำ', english: 'Som Tam', price: '≈ ₹120', prompt: 'Describe Som Tam and its spice level' },
-    { thai: 'ข้าวเหนียวมะม่วง', english: 'Mango Sticky Rice', price: '≈ ₹100', prompt: 'What is Mango Sticky Rice — dessert or main?' },
-  ];
-
-  const PHRASES = [
-    { icon: '🙏', phrase: 'Khob khun krap / ka', meaning: 'Thank you (male / female)' },
-    { icon: '📍', phrase: 'Yoo tee nai?', meaning: 'Where is it?' },
-    { icon: '💰', phrase: 'Tao rai?', meaning: 'How much does it cost?' },
-    { icon: '🚑', phrase: 'Chuay duay!', meaning: 'Help me!' },
-  ];
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <div className="mb-1 flex items-center gap-2 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            Menu Translator
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#E6F1FB', color: '#185FA5' }}>AI-powered</span>
-          </div>
-          <p className="mb-3 text-xs text-gray-400">Type a dish name or phrase in any language</p>
-          <input type="text" placeholder="e.g. Phở bò, たこ焼き, خبز..." value={input} onChange={e => onInput(e.target.value)}
-            className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#1D9E75]" />
-          {output && (
-            <div className="mt-3 rounded-xl p-4 text-sm leading-relaxed" style={{ background: '#E1F5EE', color: '#085041' }}>{output}</div>
           )}
         </div>
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <div className="mb-4 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>Survival Phrases</div>
-          {PHRASES.map(p => (
-            <div key={p.phrase} className="flex items-center gap-3 border-b border-gray-50 py-3 last:border-0">
-              <span className="text-xl">{p.icon}</span>
-              <div>
-                <div className="text-sm font-medium text-gray-900">{p.phrase}</div>
-                <div className="text-xs text-gray-400">{p.meaning}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-gray-100 bg-white p-5">
-        <div className="mb-4 flex items-center gap-2 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
-          Common Menu Phrases
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#E1F5EE', color: '#085041' }}>Thai</span>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {MENU.map(m => (
-            <button key={m.english} onClick={() => sendPrompt(m.prompt)}
-              className="flex justify-between rounded-xl p-4 text-left transition hover:opacity-80"
-              style={{ background: '#f9fafb' }}>
-              <div>
-                <div className="text-base font-semibold text-gray-900">{m.thai}</div>
-                <div className="text-xs text-gray-400">{m.english}</div>
-              </div>
-              <div className="text-sm font-semibold" style={{ color: '#1D9E75' }}>{m.price}</div>
-            </button>
-          ))}
-        </div>
+        <button
+          onClick={() => {
+            onSearch();
+            setShowSuggestions(false);
+          }}
+          className="bg-white text-[#085041] px-4 py-1.5 rounded-xl text-xs font-bold shrink-0"
+        >
+          Explore ↗
+        </button>
       </div>
     </div>
   );
 }
 
-/* ── TRANSIT ─────────────────────────────────────────────────────── */
-function TransitTab({ data }: { data: TransitData }) {
-  const tierColor = (t: string) => t === 'low' ? '#1D9E75' : t === 'medium' ? '#BA7517' : '#D85A30';
-
+function TabBar({ activeTab, setActiveTab }: any) {
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <div className="rounded-2xl border border-gray-100 bg-white p-5">
-        <div className="mb-4 flex items-center gap-2 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
-          Live Transit
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#E1F5EE', color: '#085041' }}>Real-time</span>
-        </div>
-        {data.routes.map(r => (
-          <div key={r.id} className="flex items-center gap-3 border-b border-gray-50 py-3 last:border-0">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-xl" style={{ background: '#f9fafb' }}>{r.icon}</div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium text-gray-900">{r.name}</div>
-              <div className="text-xs text-gray-400">{r.sub}</div>
+    <div className="flex gap-2 overflow-x-auto pb-1 mb-5 scrollbar-none">
+      {TABS.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => setActiveTab(t.id)}
+          className={`px-5 py-2 rounded-full text-sm font-medium border transition-all ${activeTab === t.id ? "bg-[#1D9E75] text-white border-[#1D9E75]" : "bg-white text-gray-500 border-gray-200"}`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DiscoverTab({ gems, alerts, city, onScan, onSOS, sendPrompt, onDetail }: any) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { icon: "⚡", name: "Charging", count: "12 nearby", bg: "#E1F5EE" },
+          { icon: "🏥", name: "Medical", count: "5 clinics", bg: "#FCEBEB" },
+          { icon: "💱", name: "ATM & FX", count: "8 options", bg: "#FAEEDA" },
+          { icon: "📶", name: "WiFi", count: "20+ spots", bg: "#E6F1FB" },
+        ].map((s) => (
+          <button
+            key={s.name}
+            onClick={() => onDetail(s.name.toLowerCase())}
+            className="bg-white p-4 rounded-2xl border border-gray-100 text-center hover:bg-gray-50 transition-all"
+          >
+            <div
+              className="w-10 h-10 mx-auto mb-2 flex items-center justify-center rounded-xl text-xl"
+              style={{ background: s.bg }}
+            >
+              {s.icon}
             </div>
-            <div className="text-right">
-              <div className="text-sm font-semibold" style={{ color: r.color }}>{r.time}</div>
-              <div className="text-xs" style={{ color: r.color }}>{r.status}</div>
-            </div>
-          </div>
+            <div className="text-sm font-bold text-gray-800">{s.name}</div>
+            <div className="text-[10px] text-gray-400">{s.count}</div>
+          </button>
         ))}
       </div>
-
-      <div className="rounded-2xl border border-gray-100 bg-white p-5">
-        <div className="mb-4 flex items-center gap-2 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
-          Cost Comparison
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#FAEEDA', color: '#BA7517' }}>To Airport</span>
+      <div className="grid lg:grid-cols-2 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            Local Hidden Gems{" "}
+            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
+              Off-tourist
+            </span>
+          </h3>
+          {gems.map((g: any) => (
+            <div
+              key={g.id}
+              className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0"
+            >
+              <div
+                className="w-10 h-10 flex items-center justify-center rounded-xl text-xl"
+                style={{ background: g.bg }}
+              >
+                {g.icon}
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-medium">{g.name}</div>
+                <div className="text-[10px] text-gray-400">{g.meta}</div>
+              </div>
+              <div className="text-xs font-bold text-[#1D9E75]">
+                {g.distance}
+              </div>
+            </div>
+          ))}
         </div>
-        {data.airportCosts.map(c => (
-          <div key={c.label} className="flex justify-between border-b border-gray-50 py-2.5 text-sm last:border-0">
-            <span className="text-gray-500">{c.label}</span>
-            <span className="font-semibold" style={{ color: tierColor(c.tier) }}>{c.value}</span>
-          </div>
+        <div className="bg-white p-5 rounded-2xl border border-gray-100">
+          <h3 className="font-bold mb-4">
+            Live Alerts{" "}
+            <span className="ml-2 text-[10px] bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full">
+              {alerts.length} new
+            </span>
+          </h3>
+          {alerts.map((a: any) => (
+            <div
+              key={a.id}
+              className="flex gap-3 p-3 rounded-xl mb-2 last:mb-0"
+              style={{ background: a.bg }}
+            >
+              <div
+                className="w-2 h-2 mt-1.5 rounded-full shrink-0"
+                style={{ background: a.dot }}
+              />
+              <div>
+                <div className="text-sm text-gray-800">{a.text}</div>
+                <div className="text-[10px] text-gray-500">{a.time}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        {[
+          { icon: "🍽️", label: "Scan Menu", act: onScan },
+          { icon: "🆘", label: "SOS Help", act: onSOS },
+          {
+            icon: "🗺️",
+            label: "Day Plan",
+            act: () => onDetail("day plan"),
+          },
+          {
+            icon: "🤝",
+            label: "Etiquette",
+            act: () => onDetail("etiquette"),
+          },
+          {
+            icon: "🚕",
+            label: "Safe Ride",
+            act: () => onDetail("safe ride"),
+          },
+          {
+            icon: "🎒",
+            label: "Pack Check",
+            act: () => onDetail("pack check"),
+          },
+        ].map((q) => (
+          <button
+            key={q.label}
+            onClick={q.act}
+            className="bg-white py-4 rounded-xl border border-gray-100 flex flex-col items-center hover:bg-emerald-50 hover:border-emerald-200 transition-all"
+          >
+            <span className="text-2xl">{q.icon}</span>
+            <span className="text-[10px] font-bold mt-1.5 text-gray-600">
+              {q.label}
+            </span>
+          </button>
         ))}
       </div>
     </div>
   );
 }
 
-/* ── HEALTH ──────────────────────────────────────────────────────── */
-function HealthTab({ safety, sendPrompt }: { safety: SafetyData; sendPrompt: (m: string) => void }) {
-  const CLINICS = [
-    { icon: '🏥', name: 'BNH Hospital', meta: '24hr · English staff · ★4.7', dist: '1.1 km', bg: '#FCEBEB' },
-    { icon: '💊', name: 'Pharma Plus 24', meta: 'Open now · Pharmacist on call', dist: '0.6 km', bg: '#E6F1FB' },
-    { icon: '🦷', name: 'Dental Express', meta: 'Walk-in · Low cost', dist: '1.8 km', bg: '#E1F5EE' },
-  ];
-
+function EssentialsTab({ safety, onSOS }: any) {
   return (
-    <div>
-      <button onClick={() => sendPrompt('Emergency! I need immediate medical help — navigate to nearest clinic')}
-        className="mb-5 flex w-full items-center gap-4 rounded-2xl p-5 text-left transition hover:opacity-90"
-        style={{ background: '#D85A30' }}>
+    <div className="space-y-5">
+      <button
+        onClick={onSOS}
+        className="w-full flex items-center gap-4 bg-[#D85A30] p-5 rounded-2xl text-white text-left"
+      >
         <span className="text-3xl">🚨</span>
-        <div className="flex-1">
-          <div className="font-bold text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>One-tap Emergency Call</div>
-          <div className="text-sm text-white/80">Tap to alert and navigate to nearest clinic</div>
+        <div className="flex-1 font-bold">
+          Emergency SOS
+          <div className="text-xs opacity-80 font-normal">
+            Hospital {safety.emergency.hospital.distance} · Police{" "}
+            {safety.emergency.police.distance}
+          </div>
         </div>
-        <span className="text-2xl text-white">›</span>
+        <span className="text-2xl">›</span>
       </button>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <div className="mb-4 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>Nearby Clinics</div>
-          {CLINICS.map(c => (
-            <div key={c.name} className="flex items-center gap-3 border-b border-gray-50 py-2.5 last:border-0">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-xl" style={{ background: c.bg }}>{c.icon}</div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-gray-900">{c.name}</div>
-                <div className="text-xs text-gray-400">{c.meta}</div>
+      <div className="bg-white p-5 rounded-2xl border border-gray-100">
+        <h3 className="font-bold mb-4">
+          Device Charging Stations{" "}
+          <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
+            Live
+          </span>
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded-xl">
+          {[
+            { n: "Mall", d: "0.4km", p: 80 },
+            { n: "Library", d: "0.7km", p: 45 },
+            { n: "Cafe", d: "1.1km", p: 15 },
+            { n: "Bus", d: "1.4km", p: 90 },
+          ].map((p) => (
+            <div
+              key={p.n}
+              className="bg-white p-3 rounded-xl border border-gray-100 text-center"
+            >
+              <div className="text-[10px] font-bold">{p.n}</div>
+              <div className="text-[9px] text-gray-400">{p.d}</div>
+              <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500"
+                  style={{ width: `${p.p}%` }}
+                />
               </div>
-              <div className="text-xs font-semibold" style={{ color: '#1D9E75' }}>{c.dist}</div>
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
 
-        <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2 font-semibold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            Health Tips
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#E1F5EE', color: '#085041' }}>Local</span>
+function TranslateTab({ city }: any) {
+  const [input, setInput] = useState("");
+  const lang = city === "Mumbai" ? "Marathi" : "Thai";
+  return (
+    <div className="grid lg:grid-cols-2 gap-4">
+      <div className="bg-white p-5 rounded-2xl border border-gray-100">
+        <h3 className="font-bold mb-1">
+          Menu Translator{" "}
+          <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full uppercase">
+            AI
+          </span>
+        </h3>
+        <p className="text-[10px] text-gray-400 mb-4">Type any dish name</p>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="e.g. Pad Thai, Vada Pav..."
+          className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-sm outline-none focus:border-emerald-500"
+        />
+        {input.length > 2 && (
+          <div className="mt-4 p-3 bg-emerald-50 text-emerald-800 text-xs rounded-xl leading-relaxed">
+            Analyzing "{input}"... Ask me in chat for details.
           </div>
-          <div className="space-y-3">
-            {safety.tips.map(t => (
-              <div key={t.bold} className="text-sm leading-relaxed text-gray-500">
-                {t.icon}{' '}
-                <span className="font-semibold text-gray-800">{t.bold}</span>{' '}
-                {t.rest}
-              </div>
-            ))}
+        )}
+      </div>
+      <div className="bg-white p-5 rounded-2xl border border-gray-100">
+        <h3 className="font-bold mb-4">
+          Survival Phrases{" "}
+          <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full uppercase">
+            {lang}
+          </span>
+        </h3>
+        {[
+          { i: "🙏", p: "Khob khun", m: "Thank you" },
+          { i: "📍", p: "Yoo tee nai?", m: "Where is it?" },
+          { i: "💰", p: "Tao rai?", m: "How much?" },
+        ].map((p) => (
+          <div
+            key={p.p}
+            className="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0"
+          >
+            <span className="text-xl">{p.i}</span>
+            <div>
+              <div className="text-sm font-bold">{p.p}</div>
+              <div className="text-[10px] text-gray-400">{p.m}</div>
+            </div>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TransitTab({ data }: any) {
+  return (
+    <div className="grid lg:grid-cols-2 gap-4">
+      <div className="bg-white p-5 rounded-2xl border border-gray-100">
+        <h3 className="font-bold mb-4">
+          Live Transit{" "}
+          <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full uppercase">
+            Live
+          </span>
+        </h3>
+        {data.routes.map((r: any) => (
+          <div
+            key={r.id}
+            className="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0"
+          >
+            <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-xl">
+              {r.icon}
+            </div>
+            <div className="flex-1">
+              <div className="text-sm font-bold">{r.name}</div>
+              <div className="text-[10px] text-gray-400">{r.sub}</div>
+            </div>
+            <div
+              className="text-right font-bold text-xs"
+              style={{ color: r.color }}
+            >
+              {r.time}
+              <div className="text-[10px] font-normal">{r.status}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HealthTab({ safety, onSOS }: any) {
+  return (
+    <div className="space-y-5">
+      <button
+        onClick={onSOS}
+        className="w-full flex items-center gap-4 bg-[#D85A30] p-5 rounded-2xl text-white text-left font-bold"
+      >
+        🚨 Emergency Medical Call<span className="text-2xl ml-auto">›</span>
+      </button>
+      <div className="grid lg:grid-cols-2 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100">
+          <h3 className="font-bold mb-4">Health Tips</h3>
+          {safety.tips.map((t: any) => (
+            <div key={t.bold} className="text-xs text-gray-500 mb-3">
+              {t.icon} <span className="font-bold text-gray-800">{t.bold}</span>{" "}
+              {t.rest}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+function QuickDetailModal({ type, city, onClose }: any) {
+  const data: Record<string, any> = {
+    charging: { title: "Charging Stations", items: ["Siam Paragon (2nd Fl)", "IconSiam (B1)", "Terminal 21 (Food Court)"] },
+    medical: { title: "Medical Centers", items: ["BNH Hospital (Open 24h)", "Bumrungrad (Intl Clinic)", "Samitivej Hospital"] },
+    "atm & fx": { title: "ATM & Currency", items: ["SuperRich (Best Rates)", "SCB (Exchange Counter)", "Kasikorn ATM"] },
+    wifi: { title: "WiFi Spots", items: ["AIS Super WiFi", "TrueMove Hub", "Starbucks Free WiFi"] },
+    "day plan": { title: "Day Plan Helper", items: ["Morning: Market Tour", "Afternoon: River Cruise", "Evening: Rooftop Bar"] },
+    etiquette: { title: "Local Etiquette", items: ["Remove shoes indoors", "Dress modestly for temples", "Use 'Sawatdee' greeting"] },
+    "safe ride": { title: "Safe Ride Partners", items: ["Grab (Verified)", "Bolt (Budget)", "MuvMi (EV Tuk-tuk)"] },
+    "pack check": { title: "Pack Checklist", items: ["Sunscreen (SPF 50+)", "Power Adapter (Type A/C)", "Light Cotton Clothing"] }
+  };
+  const content = data[type] || { title: "Details", items: ["No details available yet."] };
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="p-6 bg-[#1D9E75] text-white flex justify-between items-center">
+          <h3 className="font-bold text-lg">{content.title} in {city}</h3>
+          <button onClick={onClose}><Search className="w-5 h-5 rotate-45" /></button>
+        </div>
+        <div className="p-6 space-y-3">
+          {content.items.map((it: string) => (
+            <div key={it} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl text-sm font-medium text-gray-700">
+              <Sparkles className="w-4 h-4 text-emerald-500" /> {it}
+            </div>
+          ))}
+          <button onClick={onClose} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl text-sm">Close</button>
         </div>
       </div>
     </div>
