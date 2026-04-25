@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Search, MapPin, Navigation, Sparkles } from "lucide-react";
+import { Search, MapPin, Navigation, Sparkles, Globe, CheckCircle2, XCircle, MessageSquare, Languages, Info } from "lucide-react";
 import {
   getGems,
   getAlerts,
@@ -12,6 +12,7 @@ import {
   type TransitData,
   type SafetyData,
 } from "../services/travelApi";
+import { CULTURE_DATA } from "../data/cultureData";
 
 // Components
 import ScanMenuModal from "../components/ScanMenuModal";
@@ -19,13 +20,14 @@ import SOSModal from "../components/SOSModal";
 import SearchRefinementModal from "../components/SearchRefinementModal";
 import ItineraryModal from "../components/ItineraryModal";
 
-type Tab = "discover" | "essentials" | "translate" | "transit" | "health";
+type Tab = "discover" | "essentials" | "translate" | "transit" | "health" | "culture";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "discover", label: "Discover" },
-  { id: "essentials", label: "Essentials" },
+  { id: "culture", label: "Culture & Etiquette" },
   { id: "translate", label: "Translate" },
   { id: "transit", label: "Transit" },
+  { id: "essentials", label: "Essentials" },
   { id: "health", label: "Health & Safety" },
 ];
 
@@ -442,6 +444,7 @@ export default function DashboardPage() {
             onSOS={() => toggleModal("sos", true)}
             sendPrompt={showToast}
             onDetail={setDetailModal}
+            setActiveTab={setActiveTab}
           />
         )}
         {activeTab === "essentials" && (
@@ -455,6 +458,7 @@ export default function DashboardPage() {
         {activeTab === "health" && (
           <HealthTab safety={safety} onSOS={() => toggleModal("sos", true)} />
         )}
+        {activeTab === "culture" && <CultureTab sendPrompt={showToast} />}
       </div>
 
       <ScanMenuModal
@@ -578,7 +582,7 @@ function TabBar({ activeTab, setActiveTab }: any) {
   );
 }
 
-function DiscoverTab({ gems, alerts, city, onScan, onSOS, sendPrompt, onDetail }: any) {
+function DiscoverTab({ gems, alerts, city, onScan, onSOS, sendPrompt, onDetail, setActiveTab }: any) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -670,7 +674,7 @@ function DiscoverTab({ gems, alerts, city, onScan, onSOS, sendPrompt, onDetail }
           {
             icon: "🤝",
             label: "Etiquette",
-            act: () => onDetail("etiquette"),
+            act: () => setActiveTab("culture"),
           },
           {
             icon: "🚕",
@@ -870,7 +874,6 @@ function QuickDetailModal({ type, city, onClose }: any) {
     "atm & fx": { title: "ATM & Currency", items: ["SuperRich (Best Rates)", "SCB (Exchange Counter)", "Kasikorn ATM"] },
     wifi: { title: "WiFi Spots", items: ["AIS Super WiFi", "TrueMove Hub", "Starbucks Free WiFi"] },
     "day plan": { title: "Day Plan Helper", items: ["Morning: Market Tour", "Afternoon: River Cruise", "Evening: Rooftop Bar"] },
-    etiquette: { title: "Local Etiquette", items: ["Remove shoes indoors", "Dress modestly for temples", "Use 'Sawatdee' greeting"] },
     "safe ride": { title: "Safe Ride Partners", items: ["Grab (Verified)", "Bolt (Budget)", "MuvMi (EV Tuk-tuk)"] },
     "pack check": { title: "Pack Checklist", items: ["Sunscreen (SPF 50+)", "Power Adapter (Type A/C)", "Light Cotton Clothing"] }
   };
@@ -890,6 +893,148 @@ function QuickDetailModal({ type, city, onClose }: any) {
             </div>
           ))}
           <button onClick={onClose} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl text-sm">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── CULTURE ─────────────────────────────────────────────────────── */
+function CultureTab({ sendPrompt }: { sendPrompt: (m: string) => void }) {
+  const [selectedLang, setSelectedLang] = useState("Thai");
+  const [phraseSearch, setPhraseSearch] = useState("");
+  const data = CULTURE_DATA[selectedLang];
+
+  const filteredPhrases = data.phrases.map((cat: any) => ({
+    ...cat,
+    items: cat.items.filter((i: any) =>
+      i.original.toLowerCase().includes(phraseSearch.toLowerCase()) ||
+      i.translated.toLowerCase().includes(phraseSearch.toLowerCase())
+    )
+  })).filter((cat: any) => cat.items.length > 0);
+
+  return (
+    <div className="space-y-5">
+      {/* Language Selector */}
+      <div className="scrollbar-none flex gap-2 overflow-x-auto pb-2">
+        {Object.keys(CULTURE_DATA).map(lang => (
+          <button
+            key={lang}
+            onClick={() => setSelectedLang(lang)}
+            className="flex flex-shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all hover:border-[#1D9E75]"
+            style={selectedLang === lang
+              ? { background: "#1D9E75", color: "#fff", borderColor: "#1D9E75", boxShadow: "0 4px 12px rgba(29, 158, 117, 0.2)" }
+              : { background: "#fff", color: "#374151", borderColor: "#e5e7eb" }
+            }
+          >
+            <span className="text-lg">{CULTURE_DATA[lang].flag}</span>
+            {lang}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        {/* Etiquette Dos & Donts */}
+        <div className="lg:col-span-2 space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2 font-bold text-green-700" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                <CheckCircle2 className="h-5 w-5" />
+                Cultural Do's
+              </div>
+              <div className="space-y-4">
+                {data.etiquette.dos.map((item: any) => (
+                  <div key={item.title}>
+                    <div className="text-sm font-bold text-gray-900">{item.title}</div>
+                    <div className="mt-0.5 text-xs leading-relaxed text-gray-500">{item.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2 font-bold text-red-600" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                <XCircle className="h-5 w-5" />
+                Cultural Don'ts
+              </div>
+              <div className="space-y-4">
+                {data.etiquette.donts.map((item: any) => (
+                  <div key={item.title}>
+                    <div className="text-sm font-bold text-gray-900">{item.title}</div>
+                    <div className="mt-0.5 text-xs leading-relaxed text-gray-500">{item.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Essentials / Nuances */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 font-bold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <Info className="h-5 w-5 text-[#1D9E75]" />
+              Local Nuances
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {data.etiquette.essentials.map((item: any) => (
+                <div key={item.title} className="rounded-xl bg-gray-50 p-4">
+                  <div className="mb-2 text-2xl">{item.icon}</div>
+                  <div className="text-sm font-bold text-gray-900">{item.title}</div>
+                  <div className="mt-1 text-[11px] leading-relaxed text-gray-500">{item.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Local Phrases */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm flex flex-col h-full">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <Languages className="h-5 w-5 text-[#1D9E75]" />
+              Survival Phrases
+            </div>
+            <span className="rounded-full bg-[#E1F5EE] px-2 py-0.5 text-[10px] font-bold text-[#085041]">
+              {selectedLang}
+            </span>
+          </div>
+
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search phrases..."
+              value={phraseSearch}
+              onChange={e => setPhraseSearch(e.target.value)}
+              className="w-full rounded-xl border border-gray-100 bg-gray-50 py-2 pl-9 pr-4 text-xs outline-none focus:border-[#1D9E75]"
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-5 pr-1 scrollbar-none max-h-[500px]">
+            {filteredPhrases.map((cat: any) => (
+              <div key={cat.category}>
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">{cat.category}</div>
+                <div className="space-y-3">
+                  {cat.items.map((item: any) => (
+                    <div key={item.original} className="group rounded-xl border border-transparent p-2 transition hover:bg-gray-50">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="text-sm font-bold text-gray-900">{item.original}</div>
+                          <div className="text-xs text-gray-500">{item.translated}</div>
+                        </div>
+                        <button className="rounded-full bg-gray-100 p-1.5 opacity-0 transition group-hover:opacity-100 hover:bg-gray-200">
+                          <MessageSquare className="h-3 w-3 text-gray-600" />
+                        </button>
+                      </div>
+                      <div className="mt-1 text-[10px] italic text-[#1D9E75]">"{item.pronunciation}"</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {filteredPhrases.length === 0 && (
+              <div className="py-10 text-center text-xs text-gray-400">No phrases found for "{phraseSearch}"</div>
+            )}
+          </div>
         </div>
       </div>
     </div>
