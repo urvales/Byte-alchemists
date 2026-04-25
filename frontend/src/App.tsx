@@ -5,6 +5,7 @@ import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import OnboardingPage from './pages/OnboardingPage';
 import DashboardPage from './pages/DashboardPage';
+import ExperiencesPage from './pages/ExperiencesPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<AuthPage />} />
+        <Route path="/experiences" element={<ExperiencesPage />} />
 
         <Route element={<ProtectedRoute requireOnboarding={false} />}>
           <Route path="/onboarding" element={<OnboardingPage />} />

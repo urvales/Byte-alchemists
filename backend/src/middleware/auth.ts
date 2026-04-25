@@ -16,3 +16,16 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
     return res.status(401).json({ success: false, message: "Invalid or expired token" });
   }
 };
+
+export const optionalAuth = (req: Request, _res: Response, next: NextFunction) => {
+  const header = req.headers.authorization;
+  if (header?.startsWith("Bearer ")) {
+    try {
+      const payload = jwt.verify(header.slice(7), JWT_SECRET) as { userId: string };
+      (req as any).auth = { userId: payload.userId };
+    } catch {
+      // ignore invalid token for optional auth
+    }
+  }
+  next();
+};
