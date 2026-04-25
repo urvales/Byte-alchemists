@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, Users, MapPin, Sparkles } from 'lucide-react';
+import { X, Calendar, Users, Sparkles } from 'lucide-react';
 
 interface SearchRefinementModalProps {
   isOpen: boolean;

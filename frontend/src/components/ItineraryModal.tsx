@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, MapPin, Calendar, Clock, Coffee, Camera, Moon, CreditCard, ChevronRight } from 'lucide-react';
 
 interface ItineraryModalProps {

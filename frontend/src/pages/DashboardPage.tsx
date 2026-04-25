@@ -1,12 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Search, MapPin, Navigation, Sparkles, Globe, CheckCircle2, XCircle, MessageSquare, Languages, Info } from "lucide-react";
+import {
+  Search,
+  MapPin,
+  Navigation,
+  Sparkles,
+  Globe,
+  CheckCircle2,
+  XCircle,
+  MessageSquare,
+  Languages,
+  Info,
+} from "lucide-react";
 import {
   getGems,
   getAlerts,
   getTransit,
   getSafety,
-  createSearch,
   type Gem,
   type Alert,
   type TransitData,
@@ -20,7 +30,13 @@ import SOSModal from "../components/SOSModal";
 import SearchRefinementModal from "../components/SearchRefinementModal";
 import ItineraryModal from "../components/ItineraryModal";
 
-type Tab = "discover" | "essentials" | "translate" | "transit" | "health" | "culture";
+type Tab =
+  | "discover"
+  | "essentials"
+  | "translate"
+  | "transit"
+  | "health"
+  | "culture";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "discover", label: "Discover" },
@@ -30,14 +46,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "essentials", label: "Essentials" },
   { id: "health", label: "Health & Safety" },
 ];
-
-const TRANSLATIONS: Record<string, string> = {
-  phở: "Phở (Vietnamese noodle soup) — slow-cooked beef broth with rice noodles, herbs. Price: ₹120–200.",
-  tako: "Takoyaki (たこ焼き) — Japanese octopus balls with mayo and bonito flakes.",
-  ramen:
-    "Ramen (ラーメン) — Japanese wheat noodles in savory broth with toppings.",
-  pad: "Pad Thai (ผัดไทย) — Iconic Thai stir-fried rice noodles. Contains peanuts.",
-};
 
 // ── Base Fallback Data ───────────────────────────────────────────
 const BASE_TRANSIT: TransitData = {
@@ -100,201 +108,708 @@ const BASE_SAFETY: SafetyData = {
 };
 
 // ── City-specific Mock Data ──────────────────────────────────────
-// ── City-specific Mock Data ──────────────────────────────────────
 const CITY_DATA: Record<string, any> = {
   Bangkok: {
     gems: [
-      { id: "b1", icon: "🍜", name: "Mama Lai's", meta: "4.9 ★", distance: "0.3 km", bg: "#E1F5EE" },
-      { id: "b2", icon: "🙏", name: "Wat Saket", meta: "4.7 ★", distance: "1.2 km", bg: "#FAEEDA" },
-      { id: "b3", icon: "🍹", name: "Teens of Thailand", meta: "4.8 ★", distance: "0.8 km", bg: "#FCEBEB" },
-      { id: "b4", icon: "🛍️", name: "Chatuchak Market", meta: "4.6 ★", distance: "4.5 km", bg: "#E6F1FB" },
+      {
+        id: "b1",
+        icon: "🍜",
+        name: "Mama Lai's",
+        meta: "4.9 ★",
+        distance: "0.3 km",
+        bg: "#E1F5EE",
+      },
+      {
+        id: "b2",
+        icon: "🙏",
+        name: "Wat Saket",
+        meta: "4.7 ★",
+        distance: "1.2 km",
+        bg: "#FAEEDA",
+      },
+      {
+        id: "b3",
+        icon: "🍹",
+        name: "Teens of Thailand",
+        meta: "4.8 ★",
+        distance: "0.8 km",
+        bg: "#FCEBEB",
+      },
+      {
+        id: "b4",
+        icon: "🛍️",
+        name: "Chatuchak Market",
+        meta: "4.6 ★",
+        distance: "4.5 km",
+        bg: "#E6F1FB",
+      },
     ],
     alerts: [
-      { id: "ba1", text: "Rain forecast tonight.", time: "15m ago", bg: "#FAEEDA", dot: "#BA7517" },
-      { id: "ba2", text: "BTS Sukhumvit Line delayed.", time: "1h ago", bg: "#FCEBEB", dot: "#D85A30" },
-      { id: "ba3", text: "Night market opens early.", time: "2h ago", bg: "#E1F5EE", dot: "#1D9E75" },
+      {
+        id: "ba1",
+        text: "Rain forecast tonight.",
+        time: "15m ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
+      {
+        id: "ba2",
+        text: "BTS Sukhumvit Line delayed.",
+        time: "1h ago",
+        bg: "#FCEBEB",
+        dot: "#D85A30",
+      },
+      {
+        id: "ba3",
+        text: "Night market opens early.",
+        time: "2h ago",
+        bg: "#E1F5EE",
+        dot: "#1D9E75",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: BASE_SAFETY,
   },
   Mumbai: {
     gems: [
-      { id: "m1", icon: "🍛", name: "Bademiya", meta: "4.8 ★", distance: "0.5 km", bg: "#FAEEDA" },
-      { id: "m2", icon: "🌊", name: "Marine Drive", meta: "4.9 ★", distance: "2.1 km", bg: "#E6F1FB" },
-      { id: "m3", icon: "☕", name: "Kyani & Co.", meta: "4.6 ★", distance: "1.5 km", bg: "#E1F5EE" },
+      {
+        id: "m1",
+        icon: "🍛",
+        name: "Bademiya",
+        meta: "4.8 ★",
+        distance: "0.5 km",
+        bg: "#FAEEDA",
+      },
+      {
+        id: "m2",
+        icon: "🌊",
+        name: "Marine Drive",
+        meta: "4.9 ★",
+        distance: "2.1 km",
+        bg: "#E6F1FB",
+      },
+      {
+        id: "m3",
+        icon: "☕",
+        name: "Kyani & Co.",
+        meta: "4.6 ★",
+        distance: "1.5 km",
+        bg: "#E1F5EE",
+      },
     ],
     alerts: [
-      { id: "ma1", text: "Train delayed 10m.", time: "5m ago", bg: "#E6F1FB", dot: "#185FA5" },
-      { id: "ma2", text: "Heavy traffic at Bandra.", time: "30m ago", bg: "#FAEEDA", dot: "#BA7517" },
+      {
+        id: "ma1",
+        text: "Train delayed 10m.",
+        time: "5m ago",
+        bg: "#E6F1FB",
+        dot: "#185FA5",
+      },
+      {
+        id: "ma2",
+        text: "Heavy traffic at Bandra.",
+        time: "30m ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 7.8 },
   },
   London: {
     gems: [
-      { id: "l1", icon: "🥯", name: "Beigel Bake", meta: "4.9 ★", distance: "0.4 km", bg: "#FAEEDA" },
-      { id: "l2", icon: "🖼️", name: "Tate Modern", meta: "4.8 ★", distance: "1.2 km", bg: "#E6F1FB" },
-      { id: "l3", icon: "🍻", name: "The Churchill Arms", meta: "4.7 ★", distance: "2.5 km", bg: "#FCEBEB" },
+      {
+        id: "l1",
+        icon: "🥯",
+        name: "Beigel Bake",
+        meta: "4.9 ★",
+        distance: "0.4 km",
+        bg: "#FAEEDA",
+      },
+      {
+        id: "l2",
+        icon: "🖼️",
+        name: "Tate Modern",
+        meta: "4.8 ★",
+        distance: "1.2 km",
+        bg: "#E6F1FB",
+      },
+      {
+        id: "l3",
+        icon: "🍻",
+        name: "The Churchill Arms",
+        meta: "4.7 ★",
+        distance: "2.5 km",
+        bg: "#FCEBEB",
+      },
     ],
     alerts: [
-      { id: "la1", text: "Tube strike tomorrow.", time: "2h ago", bg: "#FAEEDA", dot: "#BA7517" },
-      { id: "la2", text: "Central line delays.", time: "10m ago", bg: "#FCEBEB", dot: "#D85A30" },
+      {
+        id: "la1",
+        text: "Tube strike tomorrow.",
+        time: "2h ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
+      {
+        id: "la2",
+        text: "Central line delays.",
+        time: "10m ago",
+        bg: "#FCEBEB",
+        dot: "#D85A30",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 8.5 },
   },
   Paris: {
     gems: [
-      { id: "p1", icon: "🥐", name: "Du Pain et des Idées", meta: "4.9 ★", distance: "0.6 km", bg: "#FCEBEB" },
-      { id: "p2", icon: "🎨", name: "Musée d'Orsay", meta: "4.8 ★", distance: "1.5 km", bg: "#E6F1FB" },
-      { id: "p3", icon: "🍷", name: "Le Verre Volé", meta: "4.7 ★", distance: "2.0 km", bg: "#E1F5EE" },
+      {
+        id: "p1",
+        icon: "🥐",
+        name: "Du Pain et des Idées",
+        meta: "4.9 ★",
+        distance: "0.6 km",
+        bg: "#FCEBEB",
+      },
+      {
+        id: "p2",
+        icon: "🎨",
+        name: "Musée d'Orsay",
+        meta: "4.8 ★",
+        distance: "1.5 km",
+        bg: "#E6F1FB",
+      },
+      {
+        id: "p3",
+        icon: "🍷",
+        name: "Le Verre Volé",
+        meta: "4.7 ★",
+        distance: "2.0 km",
+        bg: "#E1F5EE",
+      },
     ],
     alerts: [
-      { id: "pa1", text: "Museum pass sale today.", time: "1h ago", bg: "#E1F5EE", dot: "#1D9E75" },
-      { id: "pa2", text: "Eiffel Tower tickets low.", time: "3h ago", bg: "#FAEEDA", dot: "#BA7517" },
+      {
+        id: "pa1",
+        text: "Museum pass sale today.",
+        time: "1h ago",
+        bg: "#E1F5EE",
+        dot: "#1D9E75",
+      },
+      {
+        id: "pa2",
+        text: "Eiffel Tower tickets low.",
+        time: "3h ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 8.1 },
   },
   Tokyo: {
     gems: [
-      { id: "t1", icon: "🍣", name: "Tsukiji Outer Market", meta: "4.9 ★", distance: "0.2 km", bg: "#E6F1FB" },
-      { id: "t2", icon: "⛩️", name: "Meiji Shrine", meta: "4.8 ★", distance: "3.1 km", bg: "#E1F5EE" },
-      { id: "t3", icon: "🍜", name: "Ichiran Ramen", meta: "4.7 ★", distance: "1.0 km", bg: "#FAEEDA" },
+      {
+        id: "t1",
+        icon: "🍣",
+        name: "Tsukiji Outer Market",
+        meta: "4.9 ★",
+        distance: "0.2 km",
+        bg: "#E6F1FB",
+      },
+      {
+        id: "t2",
+        icon: "⛩️",
+        name: "Meiji Shrine",
+        meta: "4.8 ★",
+        distance: "3.1 km",
+        bg: "#E1F5EE",
+      },
+      {
+        id: "t3",
+        icon: "🍜",
+        name: "Ichiran Ramen",
+        meta: "4.7 ★",
+        distance: "1.0 km",
+        bg: "#FAEEDA",
+      },
     ],
     alerts: [
-      { id: "ta1", text: "Sakura peak in 2 days.", time: "3h ago", bg: "#FCEBEB", dot: "#D85A30" },
-      { id: "ta2", text: "Yamanote line clear.", time: "5m ago", bg: "#E1F5EE", dot: "#1D9E75" },
+      {
+        id: "ta1",
+        text: "Sakura peak in 2 days.",
+        time: "3h ago",
+        bg: "#FCEBEB",
+        dot: "#D85A30",
+      },
+      {
+        id: "ta2",
+        text: "Yamanote line clear.",
+        time: "5m ago",
+        bg: "#E1F5EE",
+        dot: "#1D9E75",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 9.2 },
   },
   "New York": {
     gems: [
-      { id: "ny1", icon: "🍕", name: "Joe's Pizza", meta: "4.8 ★", distance: "0.3 km", bg: "#FAEEDA" },
-      { id: "ny2", icon: "🌳", name: "Central Park", meta: "4.9 ★", distance: "1.5 km", bg: "#E1F5EE" },
-      { id: "ny3", icon: "🎭", name: "Broadway Tickets", meta: "4.7 ★", distance: "0.8 km", bg: "#E6F1FB" },
+      {
+        id: "ny1",
+        icon: "🍕",
+        name: "Joe's Pizza",
+        meta: "4.8 ★",
+        distance: "0.3 km",
+        bg: "#FAEEDA",
+      },
+      {
+        id: "ny2",
+        icon: "🌳",
+        name: "Central Park",
+        meta: "4.9 ★",
+        distance: "1.5 km",
+        bg: "#E1F5EE",
+      },
+      {
+        id: "ny3",
+        icon: "🎭",
+        name: "Broadway Tickets",
+        meta: "4.7 ★",
+        distance: "0.8 km",
+        bg: "#E6F1FB",
+      },
     ],
     alerts: [
-      { id: "nya1", text: "Subway line G closed.", time: "10m ago", bg: "#FAEEDA", dot: "#BA7517" },
-      { id: "nya2", text: "Times square crowded.", time: "1h ago", bg: "#FCEBEB", dot: "#D85A30" },
+      {
+        id: "nya1",
+        text: "Subway line G closed.",
+        time: "10m ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
+      {
+        id: "nya2",
+        text: "Times square crowded.",
+        time: "1h ago",
+        bg: "#FCEBEB",
+        dot: "#D85A30",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 7.5 },
   },
   Dubai: {
     gems: [
-      { id: "d1", icon: "🏙️", name: "Old Souk Gold", meta: "4.7 ★", distance: "1.5 km", bg: "#FAEEDA" },
-      { id: "d2", icon: "🐪", name: "Desert Safari", meta: "4.8 ★", distance: "15.0 km", bg: "#E1F5EE" },
-      { id: "d3", icon: "🌊", name: "Kite Beach", meta: "4.6 ★", distance: "4.2 km", bg: "#E6F1FB" },
+      {
+        id: "d1",
+        icon: "🏙️",
+        name: "Old Souk Gold",
+        meta: "4.7 ★",
+        distance: "1.5 km",
+        bg: "#FAEEDA",
+      },
+      {
+        id: "d2",
+        icon: "🐪",
+        name: "Desert Safari",
+        meta: "4.8 ★",
+        distance: "15.0 km",
+        bg: "#E1F5EE",
+      },
+      {
+        id: "d3",
+        icon: "🌊",
+        name: "Kite Beach",
+        meta: "4.6 ★",
+        distance: "4.2 km",
+        bg: "#E6F1FB",
+      },
     ],
     alerts: [
-      { id: "da1", text: "Sandstorm warning.", time: "4h ago", bg: "#FAEEDA", dot: "#BA7517" },
-      { id: "da2", text: "Burj Khalifa light show at 8pm.", time: "1h ago", bg: "#E6F1FB", dot: "#185FA5" },
+      {
+        id: "da1",
+        text: "Sandstorm warning.",
+        time: "4h ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
+      {
+        id: "da2",
+        text: "Burj Khalifa light show at 8pm.",
+        time: "1h ago",
+        bg: "#E6F1FB",
+        dot: "#185FA5",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 8.8 },
   },
   Singapore: {
     gems: [
-      { id: "s1", icon: "🍲", name: "Tian Tian Chicken Rice", meta: "4.9 ★", distance: "0.4 km", bg: "#E1F5EE" },
-      { id: "s2", icon: "🌺", name: "Gardens by the Bay", meta: "4.8 ★", distance: "2.1 km", bg: "#E6F1FB" },
-      { id: "s3", icon: "🛍️", name: "Orchard Road", meta: "4.7 ★", distance: "1.5 km", bg: "#FCEBEB" },
+      {
+        id: "s1",
+        icon: "🍲",
+        name: "Tian Tian Chicken Rice",
+        meta: "4.9 ★",
+        distance: "0.4 km",
+        bg: "#E1F5EE",
+      },
+      {
+        id: "s2",
+        icon: "🌺",
+        name: "Gardens by the Bay",
+        meta: "4.8 ★",
+        distance: "2.1 km",
+        bg: "#E6F1FB",
+      },
+      {
+        id: "s3",
+        icon: "🛍️",
+        name: "Orchard Road",
+        meta: "4.7 ★",
+        distance: "1.5 km",
+        bg: "#FCEBEB",
+      },
     ],
     alerts: [
-      { id: "sa1", text: "Light show at 8pm.", time: "1h ago", bg: "#E6F1FB", dot: "#185FA5" },
-      { id: "sa2", text: "Heavy rain expected at 4pm.", time: "30m ago", bg: "#FAEEDA", dot: "#BA7517" },
+      {
+        id: "sa1",
+        text: "Light show at 8pm.",
+        time: "1h ago",
+        bg: "#E6F1FB",
+        dot: "#185FA5",
+      },
+      {
+        id: "sa2",
+        text: "Heavy rain expected at 4pm.",
+        time: "30m ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 9.0 },
   },
   Rome: {
     gems: [
-      { id: "r1", icon: "🍦", name: "Giolitti Gelato", meta: "4.8 ★", distance: "0.5 km", bg: "#FCEBEB" },
-      { id: "r2", icon: "🏛️", name: "Pantheon", meta: "4.9 ★", distance: "1.2 km", bg: "#E6F1FB" },
-      { id: "r3", icon: "🍝", name: "Trastevere Pasta", meta: "4.7 ★", distance: "2.5 km", bg: "#E1F5EE" },
+      {
+        id: "r1",
+        icon: "🍦",
+        name: "Giolitti Gelato",
+        meta: "4.8 ★",
+        distance: "0.5 km",
+        bg: "#FCEBEB",
+      },
+      {
+        id: "r2",
+        icon: "🏛️",
+        name: "Pantheon",
+        meta: "4.9 ★",
+        distance: "1.2 km",
+        bg: "#E6F1FB",
+      },
+      {
+        id: "r3",
+        icon: "🍝",
+        name: "Trastevere Pasta",
+        meta: "4.7 ★",
+        distance: "2.5 km",
+        bg: "#E1F5EE",
+      },
     ],
     alerts: [
-      { id: "ra1", text: "Colosseum queues 2h+.", time: "30m ago", bg: "#FAEEDA", dot: "#BA7517" },
-      { id: "ra2", text: "Metro line A closed.", time: "1h ago", bg: "#FCEBEB", dot: "#D85A30" },
+      {
+        id: "ra1",
+        text: "Colosseum queues 2h+.",
+        time: "30m ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
+      {
+        id: "ra2",
+        text: "Metro line A closed.",
+        time: "1h ago",
+        bg: "#FCEBEB",
+        dot: "#D85A30",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 7.9 },
   },
   Sydney: {
     gems: [
-      { id: "sy1", icon: "🌊", name: "Bondi Coastal Walk", meta: "4.9 ★", distance: "2.1 km", bg: "#E6F1FB" },
-      { id: "sy2", icon: "🎭", name: "Sydney Opera House", meta: "4.8 ★", distance: "5.0 km", bg: "#E1F5EE" },
-      { id: "sy3", icon: "🍷", name: "Hunter Valley Wine", meta: "4.7 ★", distance: "150 km", bg: "#FCEBEB" },
+      {
+        id: "sy1",
+        icon: "🌊",
+        name: "Bondi Coastal Walk",
+        meta: "4.9 ★",
+        distance: "2.1 km",
+        bg: "#E6F1FB",
+      },
+      {
+        id: "sy2",
+        icon: "🎭",
+        name: "Sydney Opera House",
+        meta: "4.8 ★",
+        distance: "5.0 km",
+        bg: "#E1F5EE",
+      },
+      {
+        id: "sy3",
+        icon: "🍷",
+        name: "Hunter Valley Wine",
+        meta: "4.7 ★",
+        distance: "150 km",
+        bg: "#FCEBEB",
+      },
     ],
     alerts: [
-      { id: "sya1", text: "Surf warning: High swell.", time: "1h ago", bg: "#E6F1FB", dot: "#185FA5" },
-      { id: "sya2", text: "Ferry delays at Circular Quay.", time: "20m ago", bg: "#FAEEDA", dot: "#BA7517" },
+      {
+        id: "sya1",
+        text: "Surf warning: High swell.",
+        time: "1h ago",
+        bg: "#E6F1FB",
+        dot: "#185FA5",
+      },
+      {
+        id: "sya2",
+        text: "Ferry delays at Circular Quay.",
+        time: "20m ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 8.6 },
   },
   Bali: {
     gems: [
-      { id: "ba1", icon: "🌴", name: "Ubud Monkey Forest", meta: "4.8 ★", distance: "1.2 km", bg: "#E1F5EE" },
-      { id: "ba2", icon: "🏄", name: "Uluwatu Surf Break", meta: "4.9 ★", distance: "5.5 km", bg: "#E6F1FB" },
-      { id: "ba3", icon: "☕", name: "Kopi Luwak Farm", meta: "4.7 ★", distance: "3.0 km", bg: "#FAEEDA" },
+      {
+        id: "ba1",
+        icon: "🌴",
+        name: "Ubud Monkey Forest",
+        meta: "4.8 ★",
+        distance: "1.2 km",
+        bg: "#E1F5EE",
+      },
+      {
+        id: "ba2",
+        icon: "🏄",
+        name: "Uluwatu Surf Break",
+        meta: "4.9 ★",
+        distance: "5.5 km",
+        bg: "#E6F1FB",
+      },
+      {
+        id: "ba3",
+        icon: "☕",
+        name: "Kopi Luwak Farm",
+        meta: "4.7 ★",
+        distance: "3.0 km",
+        bg: "#FAEEDA",
+      },
     ],
     alerts: [
-      { id: "baa1", text: "Traffic near Kuta.", time: "20m ago", bg: "#FAEEDA", dot: "#BA7517" },
-      { id: "baa2", text: "High tide warning.", time: "2h ago", bg: "#FCEBEB", dot: "#D85A30" },
+      {
+        id: "baa1",
+        text: "Traffic near Kuta.",
+        time: "20m ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
+      {
+        id: "baa2",
+        text: "High tide warning.",
+        time: "2h ago",
+        bg: "#FCEBEB",
+        dot: "#D85A30",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 7.4 },
   },
   "Cape Town": {
     gems: [
-      { id: "ct1", icon: "⛰️", name: "Table Mountain", meta: "4.9 ★", distance: "3.5 km", bg: "#E6F1FB" },
-      { id: "ct2", icon: "🐧", name: "Boulders Beach", meta: "4.8 ★", distance: "12 km", bg: "#E1F5EE" },
-      { id: "ct3", icon: "🍷", name: "Stellenbosch Vines", meta: "4.9 ★", distance: "45 km", bg: "#FCEBEB" },
+      {
+        id: "ct1",
+        icon: "⛰️",
+        name: "Table Mountain",
+        meta: "4.9 ★",
+        distance: "3.5 km",
+        bg: "#E6F1FB",
+      },
+      {
+        id: "ct2",
+        icon: "🐧",
+        name: "Boulders Beach",
+        meta: "4.8 ★",
+        distance: "12 km",
+        bg: "#E1F5EE",
+      },
+      {
+        id: "ct3",
+        icon: "🍷",
+        name: "Stellenbosch Vines",
+        meta: "4.9 ★",
+        distance: "45 km",
+        bg: "#FCEBEB",
+      },
     ],
     alerts: [
-      { id: "cta1", text: "High winds expected.", time: "45m ago", bg: "#FAEEDA", dot: "#BA7517" },
-      { id: "cta2", text: "Cableway closed today.", time: "1h ago", bg: "#FCEBEB", dot: "#D85A30" },
+      {
+        id: "cta1",
+        text: "High winds expected.",
+        time: "45m ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
+      {
+        id: "cta2",
+        text: "Cableway closed today.",
+        time: "1h ago",
+        bg: "#FCEBEB",
+        dot: "#D85A30",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 7.2 },
   },
   "Rio de Janeiro": {
     gems: [
-      { id: "rj1", icon: "🏖️", name: "Copacabana Beach", meta: "4.7 ★", distance: "0.5 km", bg: "#FCEBEB" },
-      { id: "rj2", icon: "🗽", name: "Christ the Redeemer", meta: "4.9 ★", distance: "4.2 km", bg: "#E6F1FB" },
-      { id: "rj3", icon: "🥩", name: "Churrascaria Palace", meta: "4.8 ★", distance: "1.0 km", bg: "#E1F5EE" },
+      {
+        id: "rj1",
+        icon: "🏖️",
+        name: "Copacabana Beach",
+        meta: "4.7 ★",
+        distance: "0.5 km",
+        bg: "#FCEBEB",
+      },
+      {
+        id: "rj2",
+        icon: "🗽",
+        name: "Christ the Redeemer",
+        meta: "4.9 ★",
+        distance: "4.2 km",
+        bg: "#E6F1FB",
+      },
+      {
+        id: "rj3",
+        icon: "🥩",
+        name: "Churrascaria Palace",
+        meta: "4.8 ★",
+        distance: "1.0 km",
+        bg: "#E1F5EE",
+      },
     ],
     alerts: [
-      { id: "rja1", text: "Metro line 1 delay.", time: "15m ago", bg: "#FAEEDA", dot: "#BA7517" },
-      { id: "rja2", text: "Carnival street blocked.", time: "3h ago", bg: "#E6F1FB", dot: "#185FA5" },
+      {
+        id: "rja1",
+        text: "Metro line 1 delay.",
+        time: "15m ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
+      {
+        id: "rja2",
+        text: "Carnival street blocked.",
+        time: "3h ago",
+        bg: "#E6F1FB",
+        dot: "#185FA5",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 6.8 },
   },
   Amsterdam: {
     gems: [
-      { id: "am1", icon: "🚲", name: "Vondelpark", meta: "4.9 ★", distance: "1.0 km", bg: "#E1F5EE" },
-      { id: "am2", icon: "🖼️", name: "Van Gogh Museum", meta: "4.8 ★", distance: "1.5 km", bg: "#FCEBEB" },
-      { id: "am3", icon: "🧀", name: "Cheese Museum", meta: "4.6 ★", distance: "0.8 km", bg: "#FAEEDA" },
+      {
+        id: "am1",
+        icon: "🚲",
+        name: "Vondelpark",
+        meta: "4.9 ★",
+        distance: "1.0 km",
+        bg: "#E1F5EE",
+      },
+      {
+        id: "am2",
+        icon: "🖼️",
+        name: "Van Gogh Museum",
+        meta: "4.8 ★",
+        distance: "1.5 km",
+        bg: "#FCEBEB",
+      },
+      {
+        id: "am3",
+        icon: "🧀",
+        name: "Cheese Museum",
+        meta: "4.6 ★",
+        distance: "0.8 km",
+        bg: "#FAEEDA",
+      },
     ],
     alerts: [
-      { id: "ama1", text: "Museum square busy.", time: "10m ago", bg: "#E6F1FB", dot: "#185FA5" },
-      { id: "ama2", text: "Tram 2 rerouted.", time: "1h ago", bg: "#FAEEDA", dot: "#BA7517" },
+      {
+        id: "ama1",
+        text: "Museum square busy.",
+        time: "10m ago",
+        bg: "#E6F1FB",
+        dot: "#185FA5",
+      },
+      {
+        id: "ama2",
+        text: "Tram 2 rerouted.",
+        time: "1h ago",
+        bg: "#FAEEDA",
+        dot: "#BA7517",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 8.9 },
   },
   Seoul: {
     gems: [
-      { id: "se1", icon: "🏯", name: "Gyeongbokgung Palace", meta: "4.8 ★", distance: "2.2 km", bg: "#FAEEDA" },
-      { id: "se2", icon: "🥩", name: "Korean BBQ Alley", meta: "4.9 ★", distance: "1.0 km", bg: "#E1F5EE" },
-      { id: "se3", icon: "🛍️", name: "Myeongdong Market", meta: "4.7 ★", distance: "3.5 km", bg: "#E6F1FB" },
+      {
+        id: "se1",
+        icon: "🏯",
+        name: "Gyeongbokgung Palace",
+        meta: "4.8 ★",
+        distance: "2.2 km",
+        bg: "#FAEEDA",
+      },
+      {
+        id: "se2",
+        icon: "🥩",
+        name: "Korean BBQ Alley",
+        meta: "4.9 ★",
+        distance: "1.0 km",
+        bg: "#E1F5EE",
+      },
+      {
+        id: "se3",
+        icon: "🛍️",
+        name: "Myeongdong Market",
+        meta: "4.7 ★",
+        distance: "3.5 km",
+        bg: "#E6F1FB",
+      },
     ],
     alerts: [
-      { id: "sea1", text: "Fine dust warning.", time: "2h ago", bg: "#FCEBEB", dot: "#D85A30" },
-      { id: "sea2", text: "Subway line 2 normal.", time: "5m ago", bg: "#E1F5EE", dot: "#1D9E75" },
+      {
+        id: "sea1",
+        text: "Fine dust warning.",
+        time: "2h ago",
+        bg: "#FCEBEB",
+        dot: "#D85A30",
+      },
+      {
+        id: "sea2",
+        text: "Subway line 2 normal.",
+        time: "5m ago",
+        bg: "#E1F5EE",
+        dot: "#1D9E75",
+      },
     ],
     transit: BASE_TRANSIT,
     safety: { ...BASE_SAFETY, score: 9.1 },
@@ -339,14 +854,14 @@ export default function DashboardPage() {
   });
   const [itineraryDetails, setItineraryDetails] = useState<any>(null);
   const [detailModal, setDetailModal] = useState<any>(null);
-  const [searchDates, setSearchDates] = useState(() => {
-    const saved = localStorage.getItem('lastSearchDates');
-    return saved ? JSON.parse(saved) : null;
-  });
 
   // API states
-  const [gems, setGems] = useState<Gem[]>(() => GET_CITY_DATA(currentCity).gems);
-  const [alerts, setAlerts] = useState<Alert[]>(() => GET_CITY_DATA(currentCity).alerts);
+  const [gems, setGems] = useState<Gem[]>(
+    () => GET_CITY_DATA(currentCity).gems,
+  );
+  const [alerts, setAlerts] = useState<Alert[]>(
+    () => GET_CITY_DATA(currentCity).alerts,
+  );
   const [transit, setTransit] = useState<TransitData>(BASE_TRANSIT);
   const [safety, setSafety] = useState<SafetyData>(BASE_SAFETY);
 
@@ -361,7 +876,11 @@ export default function DashboardPage() {
   useEffect(() => {
     // Only use geolocation if there's no searched city from the landing page
     const searchedCity = localStorage.getItem("lastSearchCity");
-    if (searchedCity && searchedCity !== "[object Object]" && !searchedCity.startsWith("{")) {
+    if (
+      searchedCity &&
+      searchedCity !== "[object Object]" &&
+      !searchedCity.startsWith("{")
+    ) {
       setCurrentCity(searchedCity);
       setSearchQuery(searchedCity);
       return;
@@ -481,12 +1000,12 @@ export default function DashboardPage() {
         onClose={() => toggleModal("itinerary", false)}
         details={itineraryDetails}
       />
-      
+
       {detailModal && (
-        <QuickDetailModal 
-          type={detailModal} 
-          city={currentCity} 
-          onClose={() => setDetailModal(null)} 
+        <QuickDetailModal
+          type={detailModal}
+          city={currentCity}
+          onClose={() => setDetailModal(null)}
         />
       )}
 
@@ -582,7 +1101,16 @@ function TabBar({ activeTab, setActiveTab }: any) {
   );
 }
 
-function DiscoverTab({ gems, alerts, city, onScan, onSOS, sendPrompt, onDetail, setActiveTab }: any) {
+function DiscoverTab({
+  gems,
+  alerts,
+  city,
+  onScan,
+  onSOS,
+  sendPrompt,
+  onDetail,
+  setActiveTab,
+}: any) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -869,30 +1397,86 @@ function HealthTab({ safety, onSOS }: any) {
 }
 function QuickDetailModal({ type, city, onClose }: any) {
   const data: Record<string, any> = {
-    charging: { title: "Charging Stations", items: ["Siam Paragon (2nd Fl)", "IconSiam (B1)", "Terminal 21 (Food Court)"] },
-    medical: { title: "Medical Centers", items: ["BNH Hospital (Open 24h)", "Bumrungrad (Intl Clinic)", "Samitivej Hospital"] },
-    "atm & fx": { title: "ATM & Currency", items: ["SuperRich (Best Rates)", "SCB (Exchange Counter)", "Kasikorn ATM"] },
-    wifi: { title: "WiFi Spots", items: ["AIS Super WiFi", "TrueMove Hub", "Starbucks Free WiFi"] },
-    "day plan": { title: "Day Plan Helper", items: ["Morning: Market Tour", "Afternoon: River Cruise", "Evening: Rooftop Bar"] },
-    "safe ride": { title: "Safe Ride Partners", items: ["Grab (Verified)", "Bolt (Budget)", "MuvMi (EV Tuk-tuk)"] },
-    "pack check": { title: "Pack Checklist", items: ["Sunscreen (SPF 50+)", "Power Adapter (Type A/C)", "Light Cotton Clothing"] }
+    charging: {
+      title: "Charging Stations",
+      items: [
+        "Siam Paragon (2nd Fl)",
+        "IconSiam (B1)",
+        "Terminal 21 (Food Court)",
+      ],
+    },
+    medical: {
+      title: "Medical Centers",
+      items: [
+        "BNH Hospital (Open 24h)",
+        "Bumrungrad (Intl Clinic)",
+        "Samitivej Hospital",
+      ],
+    },
+    "atm & fx": {
+      title: "ATM & Currency",
+      items: [
+        "SuperRich (Best Rates)",
+        "SCB (Exchange Counter)",
+        "Kasikorn ATM",
+      ],
+    },
+    wifi: {
+      title: "WiFi Spots",
+      items: ["AIS Super WiFi", "TrueMove Hub", "Starbucks Free WiFi"],
+    },
+    "day plan": {
+      title: "Day Plan Helper",
+      items: [
+        "Morning: Market Tour",
+        "Afternoon: River Cruise",
+        "Evening: Rooftop Bar",
+      ],
+    },
+    "safe ride": {
+      title: "Safe Ride Partners",
+      items: ["Grab (Verified)", "Bolt (Budget)", "MuvMi (EV Tuk-tuk)"],
+    },
+    "pack check": {
+      title: "Pack Checklist",
+      items: [
+        "Sunscreen (SPF 50+)",
+        "Power Adapter (Type A/C)",
+        "Light Cotton Clothing",
+      ],
+    },
   };
-  const content = data[type] || { title: "Details", items: ["No details available yet."] };
+  const content = data[type] || {
+    title: "Details",
+    items: ["No details available yet."],
+  };
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
         <div className="p-6 bg-[#1D9E75] text-white flex justify-between items-center">
-          <h3 className="font-bold text-lg">{content.title} in {city}</h3>
-          <button onClick={onClose}><Search className="w-5 h-5 rotate-45" /></button>
+          <h3 className="font-bold text-lg">
+            {content.title} in {city}
+          </h3>
+          <button onClick={onClose}>
+            <Search className="w-5 h-5 rotate-45" />
+          </button>
         </div>
         <div className="p-6 space-y-3">
           {content.items.map((it: string) => (
-            <div key={it} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl text-sm font-medium text-gray-700">
+            <div
+              key={it}
+              className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl text-sm font-medium text-gray-700"
+            >
               <Sparkles className="w-4 h-4 text-emerald-500" /> {it}
             </div>
           ))}
-          <button onClick={onClose} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl text-sm">Close</button>
+          <button
+            onClick={onClose}
+            className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl text-sm"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>
@@ -905,26 +1489,39 @@ function CultureTab({ sendPrompt }: { sendPrompt: (m: string) => void }) {
   const [phraseSearch, setPhraseSearch] = useState("");
   const data = CULTURE_DATA[selectedLang];
 
-  const filteredPhrases = data.phrases.map((cat: any) => ({
-    ...cat,
-    items: cat.items.filter((i: any) =>
-      i.original.toLowerCase().includes(phraseSearch.toLowerCase()) ||
-      i.translated.toLowerCase().includes(phraseSearch.toLowerCase())
-    )
-  })).filter((cat: any) => cat.items.length > 0);
+  const filteredPhrases = data.phrases
+    .map((cat: any) => ({
+      ...cat,
+      items: cat.items.filter(
+        (i: any) =>
+          i.original.toLowerCase().includes(phraseSearch.toLowerCase()) ||
+          i.translated.toLowerCase().includes(phraseSearch.toLowerCase()),
+      ),
+    }))
+    .filter((cat: any) => cat.items.length > 0);
 
   return (
     <div className="space-y-5">
       {/* Language Selector */}
       <div className="scrollbar-none flex gap-2 overflow-x-auto pb-2">
-        {Object.keys(CULTURE_DATA).map(lang => (
+        {Object.keys(CULTURE_DATA).map((lang) => (
           <button
             key={lang}
             onClick={() => setSelectedLang(lang)}
             className="flex flex-shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all hover:border-[#1D9E75]"
-            style={selectedLang === lang
-              ? { background: "#1D9E75", color: "#fff", borderColor: "#1D9E75", boxShadow: "0 4px 12px rgba(29, 158, 117, 0.2)" }
-              : { background: "#fff", color: "#374151", borderColor: "#e5e7eb" }
+            style={
+              selectedLang === lang
+                ? {
+                    background: "#1D9E75",
+                    color: "#fff",
+                    borderColor: "#1D9E75",
+                    boxShadow: "0 4px 12px rgba(29, 158, 117, 0.2)",
+                  }
+                : {
+                    background: "#fff",
+                    color: "#374151",
+                    borderColor: "#e5e7eb",
+                  }
             }
           >
             <span className="text-lg">{CULTURE_DATA[lang].flag}</span>
@@ -938,30 +1535,44 @@ function CultureTab({ sendPrompt }: { sendPrompt: (m: string) => void }) {
         <div className="lg:col-span-2 space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-2 font-bold text-green-700" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <div
+                className="mb-4 flex items-center gap-2 font-bold text-green-700"
+                style={{ fontFamily: "'Outfit', sans-serif" }}
+              >
                 <CheckCircle2 className="h-5 w-5" />
                 Cultural Do's
               </div>
               <div className="space-y-4">
                 {data.etiquette.dos.map((item: any) => (
                   <div key={item.title}>
-                    <div className="text-sm font-bold text-gray-900">{item.title}</div>
-                    <div className="mt-0.5 text-xs leading-relaxed text-gray-500">{item.desc}</div>
+                    <div className="text-sm font-bold text-gray-900">
+                      {item.title}
+                    </div>
+                    <div className="mt-0.5 text-xs leading-relaxed text-gray-500">
+                      {item.desc}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-2 font-bold text-red-600" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <div
+                className="mb-4 flex items-center gap-2 font-bold text-red-600"
+                style={{ fontFamily: "'Outfit', sans-serif" }}
+              >
                 <XCircle className="h-5 w-5" />
                 Cultural Don'ts
               </div>
               <div className="space-y-4">
                 {data.etiquette.donts.map((item: any) => (
                   <div key={item.title}>
-                    <div className="text-sm font-bold text-gray-900">{item.title}</div>
-                    <div className="mt-0.5 text-xs leading-relaxed text-gray-500">{item.desc}</div>
+                    <div className="text-sm font-bold text-gray-900">
+                      {item.title}
+                    </div>
+                    <div className="mt-0.5 text-xs leading-relaxed text-gray-500">
+                      {item.desc}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -970,7 +1581,10 @@ function CultureTab({ sendPrompt }: { sendPrompt: (m: string) => void }) {
 
           {/* Essentials / Nuances */}
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-2 font-bold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <div
+              className="mb-4 flex items-center gap-2 font-bold text-gray-900"
+              style={{ fontFamily: "'Outfit', sans-serif" }}
+            >
               <Info className="h-5 w-5 text-[#1D9E75]" />
               Local Nuances
             </div>
@@ -978,8 +1592,12 @@ function CultureTab({ sendPrompt }: { sendPrompt: (m: string) => void }) {
               {data.etiquette.essentials.map((item: any) => (
                 <div key={item.title} className="rounded-xl bg-gray-50 p-4">
                   <div className="mb-2 text-2xl">{item.icon}</div>
-                  <div className="text-sm font-bold text-gray-900">{item.title}</div>
-                  <div className="mt-1 text-[11px] leading-relaxed text-gray-500">{item.desc}</div>
+                  <div className="text-sm font-bold text-gray-900">
+                    {item.title}
+                  </div>
+                  <div className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                    {item.desc}
+                  </div>
                 </div>
               ))}
             </div>
@@ -989,7 +1607,10 @@ function CultureTab({ sendPrompt }: { sendPrompt: (m: string) => void }) {
         {/* Local Phrases */}
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm flex flex-col h-full">
           <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 font-bold text-gray-900" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <div
+              className="flex items-center gap-2 font-bold text-gray-900"
+              style={{ fontFamily: "'Outfit', sans-serif" }}
+            >
               <Languages className="h-5 w-5 text-[#1D9E75]" />
               Survival Phrases
             </div>
@@ -1004,7 +1625,7 @@ function CultureTab({ sendPrompt }: { sendPrompt: (m: string) => void }) {
               type="text"
               placeholder="Search phrases..."
               value={phraseSearch}
-              onChange={e => setPhraseSearch(e.target.value)}
+              onChange={(e) => setPhraseSearch(e.target.value)}
               className="w-full rounded-xl border border-gray-100 bg-gray-50 py-2 pl-9 pr-4 text-xs outline-none focus:border-[#1D9E75]"
             />
           </div>
@@ -1012,27 +1633,40 @@ function CultureTab({ sendPrompt }: { sendPrompt: (m: string) => void }) {
           <div className="flex-1 overflow-y-auto space-y-5 pr-1 scrollbar-none max-h-[500px]">
             {filteredPhrases.map((cat: any) => (
               <div key={cat.category}>
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">{cat.category}</div>
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  {cat.category}
+                </div>
                 <div className="space-y-3">
                   {cat.items.map((item: any) => (
-                    <div key={item.original} className="group rounded-xl border border-transparent p-2 transition hover:bg-gray-50">
+                    <div
+                      key={item.original}
+                      className="group rounded-xl border border-transparent p-2 transition hover:bg-gray-50"
+                    >
                       <div className="flex items-start justify-between">
                         <div>
-                          <div className="text-sm font-bold text-gray-900">{item.original}</div>
-                          <div className="text-xs text-gray-500">{item.translated}</div>
+                          <div className="text-sm font-bold text-gray-900">
+                            {item.original}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {item.translated}
+                          </div>
                         </div>
                         <button className="rounded-full bg-gray-100 p-1.5 opacity-0 transition group-hover:opacity-100 hover:bg-gray-200">
                           <MessageSquare className="h-3 w-3 text-gray-600" />
                         </button>
                       </div>
-                      <div className="mt-1 text-[10px] italic text-[#1D9E75]">"{item.pronunciation}"</div>
+                      <div className="mt-1 text-[10px] italic text-[#1D9E75]">
+                        "{item.pronunciation}"
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             ))}
             {filteredPhrases.length === 0 && (
-              <div className="py-10 text-center text-xs text-gray-400">No phrases found for "{phraseSearch}"</div>
+              <div className="py-10 text-center text-xs text-gray-400">
+                No phrases found for "{phraseSearch}"
+              </div>
             )}
           </div>
         </div>

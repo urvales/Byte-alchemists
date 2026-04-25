@@ -201,7 +201,7 @@ export default function LandingPage() {
 
             <div className="border-t border-gray-100 px-5 py-4">
               <button
-                onClick={handleSearch}
+                onClick={() => handleSearch()}
                 className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition hover:opacity-90 sm:w-auto sm:px-10"
                 style={{ background: '#085041' }}
               >

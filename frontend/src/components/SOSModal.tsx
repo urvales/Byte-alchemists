@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, ShieldAlert, Phone, MapPin, Loader2, AlertCircle } from 'lucide-react';
+import { X, ShieldAlert, Phone, MapPin } from 'lucide-react';
 
 interface SOSModalProps {
   isOpen: boolean;
